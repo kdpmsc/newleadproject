@@ -21,10 +21,10 @@ public class TwilioCallService implements VoiceCallService {
 
     private static final Logger logger = LoggerFactory.getLogger(TwilioCallService.class);
 
-    @Value("${twilio.phone-number:+17372508034}")
+    @Value("${twilio.phone-number:}")
     private String twilioPhoneNumber;
 
-    @Value("${twilio.app-base-url:https://gaining-contort-judgingly.ngrok-free.dev}")
+    @Value("${app.public-base-url:${twilio.app-base-url:}}")
     private String appBaseUrl;
 
     @Value("${twilio.record-call:false}")

@@ -36,8 +36,17 @@ public class PlivoCallService implements VoiceCallService {
     @Value("${plivo.phone-number:}")
     private String plivoPhoneNumber;
 
-    @Value("${plivo.app-base-url:http://localhost:8080}")
+    @Value("${app.public-base-url:${plivo.app-base-url:}}")
     private String appBaseUrl;
+
+    @Value("${plivo.api-base-url}")
+    private String apiBaseUrl;
+
+    @Value("${plivo.ring-timeout-seconds:45}")
+    private int ringTimeoutSeconds;
+
+    @Value("${plivo.call-path-template:/v1/Account/{authId}/Call/}")
+    private String callPathTemplate;
 
     public PlivoCallService(RestTemplateBuilder restTemplateBuilder) {
         this.restTemplate = restTemplateBuilder.build();
@@ -64,10 +73,14 @@ public class PlivoCallService implements VoiceCallService {
             logger.error("Plivo call rejected: authentication is not configured");
             throw new IllegalStateException("Plivo authentication is not configured");
         }
+        if (apiBaseUrl == null || apiBaseUrl.isBlank()) {
+            throw new IllegalStateException("plivo.api-base-url is not configured");
+        }
 
-        String callbackUrl = appBaseUrl + "/api/v1/voice/inbound?leadId=" + leadId + "&leadName=" + leadName;
-        String endpoint = "https://api.plivo.com/v1/Account/" + authId + "/Call/";
-        logger.info("Plivo call callback configured: leadId={}, answerUrl={}", leadId, callbackUrl);
+        String callbackUrl = trimSlash(appBaseUrl) + "/api/v1/voice/inbound?leadId=" + leadId + "&leadName=" + leadName;
+        String path = callPathTemplate.replace("{authId}", authId);
+        String endpoint = trimSlash(apiBaseUrl) + (path.startsWith("/") ? path : "/" + path);
+        logger.info("Plivo call callback configured: leadId={}, answerUrl={}, endpoint={}", leadId, callbackUrl, endpoint);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -78,7 +91,7 @@ public class PlivoCallService implements VoiceCallService {
         form.add("to", toPhone);
         form.add("answer_url", callbackUrl);
         form.add("answer_method", "GET");
-        form.add("ring_timeout", "45");
+        form.add("ring_timeout", String.valueOf(ringTimeoutSeconds));
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(form, headers);
         ResponseEntity<Map> response;
@@ -109,5 +122,12 @@ public class PlivoCallService implements VoiceCallService {
                 "status", "queued",
                 "createdAt", LocalDateTime.now().toString()
         );
+    }
+
+    private static String trimSlash(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }

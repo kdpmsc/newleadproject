@@ -28,7 +28,7 @@ http://localhost:8080/swagger-ui.html
 
 1. Upload leads: `POST /api/v1/leads/import`
 2. Generate call plan: `POST /api/v1/leads/call-plan`
-3. Start Twilio call: `POST /api/v1/leads/call` with `type` set to `iv` for the fixed questions or `aiagent` for the OpenAI conversation
+3. Start Twilio call: `POST /api/v1/leads/call` with `type` set to `iv` for the fixed questions or `aiagent` for the AI conversation (provider from `AI_PROVIDER`)
 4. Save transcript: `POST /api/v1/calls/{callId}/transcript`
 5. Qualify lead: `POST /api/v1/leads/{leadId}/qualify`
 6. Create sales brief: `POST /api/v1/leads/{leadId}/sales-brief`
@@ -44,6 +44,23 @@ Name,Phone,Email,Source
 Aisha Rahman,+971555123456,aisha@gmail.com,website_form
 ```
 
+## Local run with ngrok (Twilio callbacks)
+
+Java is not required on the host. Docker and ngrok are.
+
+1. Copy `.env.example` to `.env` and set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`.
+2. From the repo root run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run-local-ngrok.ps1
+```
+
+Add `-WithOllama` only if you need `type: aiagent` calls.
+
+The script starts ngrok on port 8080, then Postgres and the app, and sets `TWILIO_APP_BASE_URL` to the public HTTPS URL. Twilio voice webhooks are unauthenticated at `/api/v1/voice/**`.
+
+If the ngrok URL changes, run the script again so the app is recreated with the new callback base URL.
+
 ## Voice provider configuration
 
 Set the following environment variables for the provider you want to use.
@@ -54,12 +71,14 @@ Set the following environment variables for the provider you want to use.
 TWILIO_ACCOUNT_SID=ACxxxxxxxx
 TWILIO_AUTH_TOKEN=xxxxxxxx
 TWILIO_PHONE_NUMBER=+971500000000
-TWILIO_APP_BASE_URL=https://gaining-contort-judgingly.ngrok-free.dev
+APP_PUBLIC_BASE_URL=https://your-subdomain.ngrok-free.dev
+TWILIO_APP_BASE_URL=https://your-subdomain.ngrok-free.dev
+AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2:3b
 ```
 
-The AI voice mode uses Twilio speech gathering and a local Ollama model one turn at a time. Example request:
+The AI voice mode uses Twilio speech gathering and the configured LLM (`AI_PROVIDER`) one turn at a time. Example request:
 
 ```json
 {
@@ -89,7 +108,7 @@ The endpoint returns `{ "reply": "..." }` and does not start a Twilio call.
 docker compose up -d --build
 ```
 
-The Ollama container automatically pulls `${OLLAMA_MODEL:-llama3.2:3b}` on startup and stores it in the `ollama_data` volume. The application reaches Ollama at `http://ollama:11434` inside the Compose network.
+The Ollama container automatically pulls `${OLLAMA_MODEL:-llama3.2:3b}` on startup and stores it in the `ollama_data` volume. When `AI_PROVIDER=ollama`, start Ollama with `docker compose up -d ollama` (the app no longer hard-depends on it). Inside Compose use `OLLAMA_BASE_URL=http://ollama:11434`; on the host use `http://localhost:11434`.
 
 ### Render Ollama setup
 
@@ -117,6 +136,65 @@ PLIVO_PHONE_NUMBER=+971500000000
 PLIVO_APP_BASE_URL=http://localhost:8080
 ```
 
+
+## Switch public / ngrok URL (no Java changes)
+
+Set either variable (they alias each other):
+
+```bash
+APP_PUBLIC_BASE_URL=https://your-subdomain.ngrok-free.dev
+# or
+TWILIO_APP_BASE_URL=https://your-subdomain.ngrok-free.dev
+```
+
+Or re-run `scripts/run-local-ngrok.ps1`, which sets both from the live ngrok HTTPS URL and recreates the app container.
+
+On a server, set `APP_PUBLIC_BASE_URL=https://your.domain.com` (no localhost in code).
+
+## Switch LLM provider (config / env only)
+
+`app.ai.provider` / `AI_PROVIDER`: `ollama` | `openai` | `openrouter` | `anthropic`
+
+### Ollama (default)
+
+```bash
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434   # or http://ollama:11434 in Compose
+OLLAMA_MODEL=llama3.2:3b
+OLLAMA_NUM_PREDICT=40
+OLLAMA_KEEP_ALIVE=30m
+```
+
+### OpenAI
+
+```bash
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+# optional: OPENAI_BASE_URL=https://api.openai.com
+```
+
+### OpenRouter
+
+```bash
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=...
+OPENROUTER_MODEL=openai/gpt-4o-mini
+# optional: OPENROUTER_BASE_URL=https://openrouter.ai/api
+```
+
+### Claude (Anthropic)
+
+```bash
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+Shared knobs: `AI_TEMPERATURE`, `AI_MAX_TOKENS`, `AI_CONNECT_TIMEOUT_MS`, `AI_READ_TIMEOUT_MS`.
+Voice greetings / IVR / think budget: `VOICE_COMPANY_NAME`, `VOICE_GREETING_TEMPLATE`, `VOICE_IV_Q1`–`VOICE_IV_Q6`, `VOICE_THINK_BUDGET_MS` (see `.env.example` and `application.yml` under `app.voice`).
+CORS: `FRONTEND_ORIGIN`, `CORS_ALLOWED_ORIGINS`. Plivo REST host: `PLIVO_API_BASE_URL` (default `https://api.plivo.com`).
+
 ## Run locally
 
 ```bash
@@ -127,9 +205,36 @@ For Swagger local testing, open `http://localhost:8080/swagger-ui.html` and exec
 
 ## Default users
 
-- admin / admin123
-- sales / sales123
-- compliance / compliance123
+Passwords are **env-only** (never commit real secrets into `application.yml`). Set them in `.env` (see `.env.example`):
+
+```bash
+APP_ADMIN_USERNAME=admin
+APP_ADMIN_PASSWORD=...
+APP_SALES_USERNAME=sales
+APP_SALES_PASSWORD=...
+APP_COMPLIANCE_USERNAME=compliance
+APP_COMPLIANCE_PASSWORD=...
+```
+
+Docker Compose defaults these to `admin123` / `sales123` / `compliance123` for local demos only — override in `.env` for anything shared.
+
+## Configuration layout
+
+Configurable values live in `src/main/resources/application.yml` (with env overrides):
+
+| Prefix | Purpose |
+|--------|---------|
+| `app.public-base-url` / `APP_PUBLIC_BASE_URL` | Twilio/Plivo webhook base URL |
+| `app.frontend-origin` / `FRONTEND_ORIGIN` | SPA origin for CORS |
+| `app.cors.*` / `CORS_ALLOWED_ORIGINS` | CORS origins, patterns, methods, headers |
+| `app.ai.*` / `AI_*`, `OLLAMA_*`, `OPENAI_*`, … | LLM provider, models, base URLs, prompts |
+| `app.voice.*` / `VOICE_*` | Greetings, IVR Q1–Q6, opt-out keywords/phrases, think budget |
+| `security.users` / `APP_*_PASSWORD` | Basic Auth users (passwords from env) |
+| `voice.provider` / `VOICE_PROVIDER` | `twilio` or `plivo` |
+| `twilio.*` / `TWILIO_*` | Twilio credentials and recording |
+| `plivo.*` / `PLIVO_*` | Plivo credentials, `PLIVO_API_BASE_URL`, ring timeout |
+
+IVR question strings (Q1–Q6) are `app.voice.iv-questions` — override with `VOICE_IV_Q1` … `VOICE_IV_Q6`.
 
 ## Docker
 

@@ -1,6 +1,8 @@
 package com.leadproject.config;
 
 import com.twilio.Twilio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +13,8 @@ import jakarta.annotation.PostConstruct;
 @ConditionalOnProperty(name = "voice.provider", havingValue = "twilio", matchIfMissing = true)
 public class TwilioConfig {
 
+    private static final Logger logger = LoggerFactory.getLogger(TwilioConfig.class);
+
     @Value("${twilio.account-sid:}")
     private String accountSid;
 
@@ -20,10 +24,12 @@ public class TwilioConfig {
     @PostConstruct
     public void init() {
         if (accountSid == null || accountSid.isBlank() || authToken == null || authToken.isBlank()) {
-            throw new IllegalStateException(
-                    "Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.");
+            logger.warn("Twilio credentials are not configured. Outbound calls will fail until "
+                    + "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are set.");
+            return;
         }
 
         Twilio.init(accountSid, authToken);
+        logger.info("Twilio client initialized");
     }
 }

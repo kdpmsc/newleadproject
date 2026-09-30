@@ -7,7 +7,16 @@ const state = {
   filters: { search: '', status: 'ALL', priority: 'ALL', source: 'ALL' }
 };
 
-const apiBase = `${window.LEAD_API_BASE_URL || 'https://gaining-contort-judgingly.ngrok-free.dev'}/api/v1`;
+const apiBase = `${window.LEAD_API_BASE_URL || defaultApiOrigin()}/api/v1`;
+
+function defaultApiOrigin() {
+  const protocol = window.location.protocol;
+  const host = window.location.host;
+  if (protocol.startsWith('http') && host && !host.startsWith('127.0.0.1:5500') && !host.startsWith('localhost:5500')) {
+    return window.location.origin;
+  }
+  return 'http://localhost:8080';
+}
 
 const elements = {
   loginScreen: document.getElementById('loginScreen'),
@@ -109,6 +118,7 @@ async function fetchJson(url, options = {}) {
     ...options,
     headers: {
       Authorization: state.auth,
+      'ngrok-skip-browser-warning': 'true',
       ...(options.headers || {})
     }
   });

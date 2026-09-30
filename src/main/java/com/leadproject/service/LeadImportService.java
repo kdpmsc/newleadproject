@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.leadproject.config.VoiceScriptProperties;
 import com.leadproject.dto.LeadImportResponse;
 import com.leadproject.dto.PhoneCallPlan;
 import com.leadproject.model.Lead;
@@ -24,9 +25,11 @@ public class LeadImportService {
     private static final Logger logger = LoggerFactory.getLogger(LeadImportService.class);
 
     private final LeadRepository leadRepository;
+    private final VoiceScriptProperties voiceScript;
 
-    public LeadImportService(LeadRepository leadRepository) {
+    public LeadImportService(LeadRepository leadRepository, VoiceScriptProperties voiceScript) {
         this.leadRepository = leadRepository;
+        this.voiceScript = voiceScript;
     }
 
     @Transactional
@@ -114,30 +117,25 @@ public class LeadImportService {
 
     public List<String> getRealEstateQuestions() {
         logger.debug("Loading real-estate qualification questions");
-        return List.of(
-                "Are you looking to buy, rent, sell, or invest?",
-                "Which areas and property types are you considering?",
-                "What budget range are you comfortable with?",
-                "When do you plan to move or purchase?",
-                "Are you the decision maker?",
-                "When should a property consultant contact you?"
-        );
+        return List.copyOf(voiceScript.getIvQuestions());
     }
 
     public PhoneCallPlan buildPhoneCallPlan(String phone, String leadName, String source) {
         logger.info("Building phone call plan: phone={}, leadName={}, source={}", phone, leadName, source);
         String normalizedPhone = phone == null ? "" : phone.trim();
-        String safeName = leadName == null || leadName.isBlank() ? "lead" : leadName;
+        String safeName = leadName == null || leadName.isBlank()
+                ? (voiceScript.getFallbackLeadName() == null ? "lead" : voiceScript.getFallbackLeadName())
+                : leadName;
 
         return PhoneCallPlan.builder()
                 .phone(normalizePhone(normalizedPhone))
                 .leadName(safeName)
                 .source(source == null || source.isBlank() ? "website_form" : source)
                 .industry("REAL_ESTATE")
-                .scriptIntro("Hello, this is a property qualification call. We are calling regarding your interest in Dubai property. May I ask a few quick questions to understand your requirement?")
+                .scriptIntro(voiceScript.getScriptIntro())
                 .questions(getRealEstateQuestions())
-                .summaryTemplate("Lead: %s. Interested in %s property. Budget: %s. Preferred area: %s. Timeline: %s. Decision maker: %s. Preferred callback: %s.")
-                .nextAction("Create an outbound property consultation callback for the salesperson after the qualification call.")
+                .summaryTemplate(voiceScript.getSummaryTemplate())
+                .nextAction(voiceScript.getNextAction())
                 .build();
     }
 

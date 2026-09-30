@@ -51,12 +51,12 @@ public class AiController {
     }
 
     @PostMapping("/ai/chat")
-    @Operation(summary = "Chat with the local Ollama model",
-            description = "Sends a development chat message to the configured local Ollama model without starting a Twilio call.")
+    @Operation(summary = "Chat with the configured AI provider",
+            description = "Sends a development chat message to the configured AI provider (app.ai.provider) without starting a Twilio call.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "AI reply generated"),
             @ApiResponse(responseCode = "400", description = "Message is missing", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Ollama is unavailable or the configured model is missing", content = @Content)
+            @ApiResponse(responseCode = "500", description = "AI provider is unavailable or the configured model is missing", content = @Content)
     })
     public Map<String, String> chat(@Valid @RequestBody AiChatRequest request) {
         long startedAt = System.nanoTime();

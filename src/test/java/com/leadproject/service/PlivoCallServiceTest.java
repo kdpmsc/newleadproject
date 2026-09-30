@@ -21,6 +21,9 @@ class PlivoCallServiceTest {
         PlivoCallService service = new PlivoCallService(new RestTemplateBuilder(), "auth-id", "auth-token");
         ReflectionTestUtils.setField(service, "plivoPhoneNumber", "+971500000000");
         ReflectionTestUtils.setField(service, "appBaseUrl", "http://localhost:8080");
+        ReflectionTestUtils.setField(service, "apiBaseUrl", "https://api.plivo.com");
+        ReflectionTestUtils.setField(service, "callPathTemplate", "/v1/Account/{authId}/Call/");
+        ReflectionTestUtils.setField(service, "ringTimeoutSeconds", 45);
 
         MockRestServiceServer server = MockRestServiceServer.bindTo(service.getRestTemplate())
                 .ignoreExpectOrder(true)

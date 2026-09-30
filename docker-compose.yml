@@ -46,11 +46,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: leadproject-app
+    # Ollama is optional: start with `docker compose up -d ollama` when AI_PROVIDER=ollama.
     depends_on:
       postgres:
         condition: service_started
-      ollama:
-        condition: service_healthy
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/leadproject
       DATABASE_USER: postgres
@@ -58,16 +57,53 @@ services:
       DATABASE_DRIVER: org.postgresql.Driver
       HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
       JPA_HIBERNATE_DDL_AUTO: update
-      APP_ADMIN_USERNAME: admin
-      APP_ADMIN_PASSWORD: admin123
-      SPRING_AI_OLLAMA_BASE_URL: http://127.0.0.1:11434
-      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-admin123}
+      APP_SALES_USERNAME: ${APP_SALES_USERNAME:-sales}
+      APP_SALES_PASSWORD: ${APP_SALES_PASSWORD:-sales123}
+      APP_COMPLIANCE_USERNAME: ${APP_COMPLIANCE_USERNAME:-compliance}
+      APP_COMPLIANCE_PASSWORD: ${APP_COMPLIANCE_PASSWORD:-compliance123}
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-${TWILIO_APP_BASE_URL:-http://localhost:8080}}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      AI_CONNECT_TIMEOUT_MS: ${AI_CONNECT_TIMEOUT_MS:-5000}
+      AI_READ_TIMEOUT_MS: ${AI_READ_TIMEOUT_MS:-45000}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-${OLLAMA_TEMPERATURE:-0.3}}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-${OLLAMA_NUM_PREDICT:-40}}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-40}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-1024}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.3}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}
+      OPENROUTER_APP_TITLE: ${OPENROUTER_APP_TITLE:-leadproject}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      ANTHROPIC_VERSION: ${ANTHROPIC_VERSION:-2023-06-01}
       VOICE_PROVIDER: ${VOICE_PROVIDER:-twilio}
+      VOICE_COMPANY_NAME: ${VOICE_COMPANY_NAME:-XYZ Properties}
+      VOICE_THINK_BUDGET_MS: ${VOICE_THINK_BUDGET_MS:-40000}
+      VOICE_MAX_THINK_POLLS: ${VOICE_MAX_THINK_POLLS:-10}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
-      TWILIO_APP_BASE_URL: ${TWILIO_APP_BASE_URL:-https://gaining-contort-judgingly.ngrok-free.dev}
+      TWILIO_APP_BASE_URL: ${TWILIO_APP_BASE_URL:-${APP_PUBLIC_BASE_URL:-http://localhost:8080}}
       TWILIO_RECORD_CALL: ${TWILIO_RECORD_CALL:-false}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      PLIVO_AUTH_ID: ${PLIVO_AUTH_ID:-}
+      PLIVO_AUTH_TOKEN: ${PLIVO_AUTH_TOKEN:-}
+      PLIVO_PHONE_NUMBER: ${PLIVO_PHONE_NUMBER:-}
+      PLIVO_APP_BASE_URL: ${PLIVO_APP_BASE_URL:-${APP_PUBLIC_BASE_URL:-http://localhost:8080}}
+      PLIVO_API_BASE_URL: ${PLIVO_API_BASE_URL:-https://api.plivo.com}
+      PLIVO_RING_TIMEOUT_SECONDS: ${PLIVO_RING_TIMEOUT_SECONDS:-45}
     ports:
       - "8080:8080"
 
