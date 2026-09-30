@@ -14,7 +14,6 @@ public class VoiceScriptProperties {
     private String ivGreetingTemplate;
     /** 1-based IVR questions Q1..Qn; defaults live in application.yml. */
     private List<String> ivQuestions = new ArrayList<>();
-    private String thinkingPhrase;
     private String noAnswerPhrase;
     private String unavailablePhrase;
     private String optOutPhrase;
@@ -38,8 +37,6 @@ public class VoiceScriptProperties {
     public void setIvGreetingTemplate(String ivGreetingTemplate) { this.ivGreetingTemplate = ivGreetingTemplate; }
     public List<String> getIvQuestions() { return ivQuestions; }
     public void setIvQuestions(List<String> ivQuestions) { this.ivQuestions = ivQuestions; }
-    public String getThinkingPhrase() { return thinkingPhrase; }
-    public void setThinkingPhrase(String thinkingPhrase) { this.thinkingPhrase = thinkingPhrase; }
     public String getNoAnswerPhrase() { return noAnswerPhrase; }
     public void setNoAnswerPhrase(String noAnswerPhrase) { this.noAnswerPhrase = noAnswerPhrase; }
     public String getUnavailablePhrase() { return unavailablePhrase; }

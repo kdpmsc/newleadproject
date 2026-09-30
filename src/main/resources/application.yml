@@ -128,7 +128,6 @@ app:
       - ${VOICE_IV_Q4:When do you plan to purchase?}
       - ${VOICE_IV_Q5:Are you the decision maker?}
       - ${VOICE_IV_Q6:When should a property consultant contact you?}
-    thinking-phrase: ${VOICE_THINKING_PHRASE:One moment please.}
     no-answer-phrase: ${VOICE_NO_ANSWER_PHRASE:We did not receive an answer. Goodbye.}
     unavailable-phrase: ${VOICE_UNAVAILABLE_PHRASE:Our voice assistant is temporarily unavailable. Please try again later. Goodbye.}
     opt-out-phrase: ${VOICE_OPT_OUT_PHRASE:Understood. We will not contact you again. Goodbye.}

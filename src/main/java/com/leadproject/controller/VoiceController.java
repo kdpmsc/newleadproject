@@ -247,15 +247,13 @@ public class VoiceController {
         if (leadName != null && !leadName.isBlank()) {
             thinkUrl += "&leadName=" + urlEncode(leadName);
         }
-        String lang = escapeXmlAttribute(voiceScript.getSpeechLanguage());
         if (first) {
             return """
                     <?xml version="1.0" encoding="UTF-8"?>
                     <Response>
-                        <Say language="%s">%s</Say>
                         <Redirect method="POST">%s</Redirect>
                     </Response>
-                    """.formatted(lang, escapeXml(voiceScript.getThinkingPhrase()), escapeXml(thinkUrl));
+                    """.formatted(escapeXml(thinkUrl));
         }
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
