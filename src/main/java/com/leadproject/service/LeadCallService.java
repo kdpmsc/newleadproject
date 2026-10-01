@@ -138,6 +138,11 @@ public class LeadCallService {
 
     @Transactional
     public void updateProviderStatus(String providerCallSid, String status) {
+        updateProviderStatus(providerCallSid, status, null);
+    }
+
+    @Transactional
+    public void updateProviderStatus(String providerCallSid, String status, Long durationSeconds) {
         logger.info("Updating provider call status: providerCallSid={}, status={}", providerCallSid, status);
         String normalizedProviderCallSid = normalizeProviderCallSid(providerCallSid);
         if (normalizedProviderCallSid == null) {
@@ -146,6 +151,9 @@ public class LeadCallService {
         }
         leadCallRepository.findByProviderCallSid(normalizedProviderCallSid).ifPresent(call -> {
             call.setStatus(status == null ? "UNKNOWN" : status.toUpperCase());
+            if (durationSeconds != null) {
+                call.setDurationSeconds(durationSeconds);
+            }
             call.setUpdatedAt(LocalDateTime.now());
             leadCallRepository.save(call);
         });

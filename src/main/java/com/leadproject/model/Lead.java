@@ -75,6 +75,11 @@ public class Lead {
     @Column(length = 3000)
     private String qualificationNotes;
 
+    private LocalDateTime followUpAt;
+
+    @Column(length = 20)
+    private String followUpStatus = "NONE";
+
     @Column(length = 100)
     private String callDisposition;
 

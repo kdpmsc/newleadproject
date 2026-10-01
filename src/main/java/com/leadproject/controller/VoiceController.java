@@ -125,11 +125,20 @@ public class VoiceController {
     public ResponseEntity<Void> handleVoiceStatus(@RequestParam(required = false) String CallSid,
                                                 @RequestParam(required = false) String CallUUID,
                                                 @RequestParam(required = false) String CallStatus,
+                                                @RequestParam(required = false) String CallDuration,
                                                 @RequestParam(required = false) String To,
                                                 @RequestParam(required = false) String From) {
                             logger.info("Voice status callback: callSid={}, callUuid={}, status={}, toPresent={}, fromPresent={}",
                                 CallSid, CallUUID, CallStatus, To != null && !To.isBlank(), From != null && !From.isBlank());
-        leadCallService.updateProviderStatus(CallSid != null ? CallSid : CallUUID, CallStatus);
+        Long durationSeconds = null;
+        if (CallDuration != null && !CallDuration.isBlank()) {
+            try {
+                durationSeconds = Long.valueOf(CallDuration);
+            } catch (NumberFormatException exception) {
+                logger.warn("Ignoring invalid call duration: callSid={}, duration={}", CallSid, CallDuration);
+            }
+        }
+        leadCallService.updateProviderStatus(CallSid != null ? CallSid : CallUUID, CallStatus, durationSeconds);
         return ResponseEntity.ok().build();
     }
 

@@ -175,6 +175,21 @@ public class LeadService {
         return savedLead;
     }
 
+    @Transactional
+    public Lead updateActivity(Long leadId, String qualificationNotes, LocalDateTime followUpAt,
+                               String followUpStatus) {
+        Lead lead = getLead(leadId);
+        if (qualificationNotes != null) {
+            lead.setQualificationNotes(qualificationNotes);
+        }
+        lead.setFollowUpAt(followUpAt);
+        if (followUpStatus != null && !followUpStatus.isBlank()) {
+            lead.setFollowUpStatus(followUpStatus.trim().toUpperCase());
+        }
+        lead.setUpdatedAt(LocalDateTime.now());
+        return leadRepository.save(lead);
+    }
+
     @Transactional(readOnly = true)
     public Optional<Lead> findByPhone(String phone) {
         logger.debug("Finding lead by phone: phone={}", phone);

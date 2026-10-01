@@ -6,6 +6,7 @@ import java.util.Map;
 
 import com.leadproject.dto.CallScriptRequest;
 import com.leadproject.dto.LeadCreateRequest;
+import com.leadproject.dto.LeadActivityUpdateRequest;
 import com.leadproject.dto.LeadImportResponse;
 import com.leadproject.dto.LeadResponse;
 import com.leadproject.dto.PhoneCallPlan;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -59,6 +61,15 @@ public class LeadController {
     @GetMapping("/leads/{leadId}")
     public ResponseEntity<LeadResponse> getLead(@PathVariable Long leadId) {
         return ResponseEntity.ok(LeadResponse.from(leadService.getLead(leadId)));
+    }
+
+    @PutMapping("/leads/{leadId}/activity")
+    public ResponseEntity<LeadResponse> updateLeadActivity(
+            @PathVariable Long leadId,
+            @RequestBody LeadActivityUpdateRequest request) {
+        Lead lead = leadService.updateActivity(leadId, request.getQualificationNotes(),
+                request.getFollowUpAt(), request.getFollowUpStatus());
+        return ResponseEntity.ok(LeadResponse.from(lead));
     }
 
     @PostMapping("/leads/{leadId}/assign")

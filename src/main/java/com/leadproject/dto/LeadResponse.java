@@ -29,6 +29,8 @@ public class LeadResponse {
     private String decisionMaker;
     private String preferredCallbackTime;
     private String qualificationNotes;
+    private LocalDateTime followUpAt;
+    private String followUpStatus;
     private String callDisposition;
     private String consentStatus;
     private LocalDateTime createdAt;
@@ -55,6 +57,8 @@ public class LeadResponse {
                 .decisionMaker(lead.getDecisionMaker())
                 .preferredCallbackTime(lead.getPreferredCallbackTime())
                 .qualificationNotes(lead.getQualificationNotes())
+                .followUpAt(lead.getFollowUpAt())
+                .followUpStatus(lead.getFollowUpStatus())
                 .callDisposition(lead.getCallDisposition())
                 .consentStatus(lead.getConsentStatus().name())
                 .createdAt(lead.getCreatedAt())

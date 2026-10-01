@@ -38,6 +38,8 @@ public class LeadCall {
     @Column(length = 100)
     private String providerCallSid;
 
+    private Long durationSeconds;
+
     @Column(length = 10000)
     private String transcript;
 

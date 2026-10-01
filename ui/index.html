@@ -20,12 +20,12 @@
       <form id="authForm" class="form-grid">
         <div class="form-field">
           <label for="username">Username</label>
-          <input id="username" type="text" value="admin" placeholder="Enter username" />
+          <input id="username" type="text" placeholder="Enter configured username" autocomplete="username" />
         </div>
 
         <div class="form-field">
           <label for="password">Password</label>
-          <input id="password" type="password" value="admin123" placeholder="Enter password" />
+          <input id="password" type="password" placeholder="Enter configured password" autocomplete="current-password" />
         </div>
 
         <button type="submit" class="primary-btn">Login to dashboard</button>
@@ -36,102 +36,282 @@
   </div>
 
   <div id="appScreen" class="dashboard-shell hidden">
-    <header class="topbar">
-      <h2>AI Lead Agent</h2>
-      <div class="header-actions">
-        <div class="user-pill" id="userLabel">Signed in as admin</div>
-        <button id="logoutBtn" class="ghost-btn">Logout</button>
+    <div class="app-frame">
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-brand"><span class="brand-badge">AI</span><strong>Lead Agent</strong></div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button class="nav-item active" type="button" data-view="leadsView">Leads</button>
+        <button class="nav-item" type="button" data-view="callCenterView">Call Center</button>
+        <button class="nav-item" type="button" data-view="campaignsView">Campaigns</button>
+        <button class="nav-item" type="button" data-view="playbooksView">Playbooks</button>
+        <button class="nav-item" type="button" data-view="complianceView">Compliance</button>
+        <button class="nav-item" type="button" data-view="salesBriefsView">Sales Briefs</button>
+      </nav>
+      <button id="logoutBtn" class="ghost-btn sidebar-logout" type="button">Logout</button>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <button id="menuToggle" class="ghost-btn menu-toggle" type="button" aria-label="Toggle navigation">Menu</button>
+          <h2 id="pageTitle">Leads</h2>
+        </div>
+        <div class="header-actions"><div class="user-pill" id="userLabel">Signed in as admin</div></div>
+      </header>
+
+      <div class="view-content">
+        <section id="leadsView" class="app-view active">
+          <section id="dashboardStats" class="metrics"></section>
+          <div class="layout">
+            <main class="panel">
+              <div class="panel-header">
+                <h3>Lead table</h3>
+                <div class="header-actions">
+                  <button id="exportExcelBtn" class="secondary-btn" type="button">Export Excel</button>
+                  <button id="exportPdfBtn" class="ghost-btn" type="button">Export PDF</button>
+                </div>
+              </div>
+
+              <details class="form-disclosure">
+                <summary>Create lead</summary>
+                <form id="createLeadForm" class="form-grid compact-form">
+                  <div class="field-row">
+                    <input name="name" placeholder="Full name" required />
+                    <input name="phone" placeholder="Phone number" required />
+                  </div>
+                  <div class="field-row">
+                    <input name="email" type="email" placeholder="Email" />
+                    <input name="source" placeholder="Source" value="website_form" required />
+                  </div>
+                  <input name="industry" placeholder="Industry" value="REAL_ESTATE" required />
+                  <label class="consent-check"><input name="consent" type="checkbox" required /> Consent to contact has been recorded</label>
+                  <button class="primary-btn" type="submit">Create lead</button>
+                  <div id="createLeadMessage" class="form-message" role="status"></div>
+                </form>
+              </details>
+
+              <details class="form-disclosure">
+                <summary>Import leads from Excel</summary>
+                <form id="importLeadsForm" class="inline-form">
+                  <input id="leadImportFile" type="file" accept=".xlsx" required />
+                  <button class="secondary-btn" type="submit">Import workbook</button>
+                  <div id="importLeadsMessage" class="form-message" role="status"></div>
+                </form>
+              </details>
+
+              <form id="lookupLeadForm" class="inline-form lead-lookup-form">
+                <input id="lookupPhone" type="tel" placeholder="Look up lead by phone" required />
+                <button class="ghost-btn" type="submit">Find lead</button>
+                <div id="lookupLeadMessage" class="form-message" role="status"></div>
+              </form>
+
+              <div class="toolbar">
+                <input id="searchInput" type="text" placeholder="Search by name, phone, location, source..." />
+                <select id="statusFilter">
+                  <option value="ALL">Status: All</option><option value="NEW">NEW</option>
+                  <option value="QUALIFIED">QUALIFIED</option><option value="FOLLOW_UP">FOLLOW_UP</option>
+                  <option value="HOT">HOT</option><option value="WARM">WARM</option>
+                  <option value="COLD">COLD</option><option value="NOT_SUITABLE">NOT_SUITABLE</option>
+                </select>
+                <select id="priorityFilter">
+                  <option value="ALL">Priority: All</option><option value="HOT">HOT</option>
+                  <option value="WARM">WARM</option><option value="COLD">COLD</option><option value="NEW">NEW</option>
+                </select>
+                <select id="sourceFilter">
+                  <option value="ALL">Source: All</option><option value="website_form">website_form</option>
+                  <option value="paid_ad">paid_ad</option><option value="whatsapp">whatsapp</option>
+                  <option value="csv_import">csv_import</option>
+                </select>
+                <select id="followUpFilter">
+                  <option value="ALL">Follow-up: All</option><option value="DUE">Due / overdue</option>
+                  <option value="SCHEDULED">Scheduled</option><option value="COMPLETED">Completed</option>
+                </select>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Priority</th><th>Intent</th><th>Location</th><th>Follow-up</th><th>Summary</th></tr></thead>
+                  <tbody id="leadTableBody"></tbody>
+                </table>
+              </div>
+            </main>
+
+            <aside class="stack">
+              <section class="panel lead-summary-box">
+                <div class="panel-header"><h3>Lead details</h3></div>
+                <h4 id="selectedLeadName">Select a lead</h4>
+                <div id="leadMeta" class="muted">Lead metadata will appear here.</div>
+                <div id="keyGrid" class="key-grid"></div>
+                <details class="form-disclosure">
+                  <summary>Update qualification</summary>
+                  <form id="qualifyLeadForm" class="form-grid compact-form">
+                    <input id="qualIntent" placeholder="Intent (buy, rent, sell, invest)" />
+                    <input id="qualPropertyType" placeholder="Property type" />
+                    <input id="qualBudget" placeholder="Budget range" />
+                    <input id="qualLocation" placeholder="Preferred location" />
+                    <input id="qualTimeline" placeholder="Timeline" />
+                    <input id="qualDecisionMaker" placeholder="Decision maker" />
+                    <input id="qualCallback" placeholder="Preferred callback time" />
+                    <textarea id="qualNotes" rows="3" placeholder="Qualification notes"></textarea>
+                    <button class="secondary-btn" type="submit">Save qualification</button>
+                    <div id="qualifyMessage" class="form-message" role="status"></div>
+                  </form>
+                  <form id="assignLeadForm" class="form-grid compact-form">
+                    <input id="assignOwnerId" type="number" min="1" placeholder="Owner user ID" required />
+                    <input id="assignReason" placeholder="Assignment reason" value="manual_assignment" />
+                    <button class="ghost-btn" type="submit">Assign lead</button>
+                    <div id="assignMessage" class="form-message" role="status"></div>
+                  </form>
+                </details>
+              </section>
+
+              <section class="panel activity-box">
+                <div class="panel-header"><h3>Call and follow-up</h3></div>
+                <div class="call-controls">
+                  <label for="callType">Call mode</label>
+                  <div class="call-control-row">
+                    <select id="callType"><option value="iv">Qualification questions</option><option value="aiagent">AI conversation</option></select>
+                    <button id="startCallBtn" class="primary-btn" type="button">Start call</button>
+                  </div>
+                </div>
+                <div class="form-field activity-field"><label for="leadNotes">Notes</label><textarea id="leadNotes" rows="4" placeholder="Add qualification notes or call outcome..."></textarea></div>
+                <div class="follow-up-fields">
+                  <div class="form-field"><label for="followUpAt">Follow-up date and time</label><input id="followUpAt" type="datetime-local" /></div>
+                  <div class="form-field"><label for="followUpStatus">Follow-up status</label><select id="followUpStatus"><option value="NONE">No follow-up</option><option value="SCHEDULED">Scheduled</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option></select></div>
+                </div>
+                <button id="saveActivityBtn" class="secondary-btn" type="button">Save notes and follow-up</button>
+                <div id="activityMessage" class="activity-message" role="status" aria-live="polite"></div>
+              </section>
+
+              <section class="panel call-history-box"><div class="panel-header"><h3>Call history</h3></div><div id="callList" class="call-list"></div></section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="callCenterView" class="app-view" hidden>
+          <div class="view-heading"><h1>Call Center</h1></div>
+          <div id="callSummaryStats" class="metrics"></div>
+          <div class="operations-grid">
+            <section class="panel">
+              <div class="panel-header"><h3>Start a call</h3></div>
+              <form id="callFlowForm" class="form-grid">
+                <label class="form-field">Lead<select id="callFlowLead" required></select></label>
+                <label class="form-field">Call mode<select id="callFlowType"><option value="iv">Qualification questions</option><option value="aiagent">AI conversation</option></select></label>
+                <button class="primary-btn" type="submit">Place call</button>
+                <div id="callFlowMessage" class="form-message" role="status"></div>
+              </form>
+            </section>
+            <section class="panel">
+              <div class="panel-header"><h3>Call plan</h3></div>
+              <form id="callPlanForm" class="form-grid">
+                <input id="planName" placeholder="Lead name" required />
+                <input id="planPhone" placeholder="Phone number" required />
+                <input id="planSource" value="website_form" placeholder="Lead source" />
+                <button class="secondary-btn" type="submit">Build call plan</button>
+              </form>
+              <pre id="callPlanResult" class="result-box">Call plan details will appear here.</pre>
+            </section>
+            <section class="panel scenario-panel">
+              <div class="panel-header"><h3>Automated scenario</h3></div>
+              <form id="scenarioForm" class="form-grid">
+                <label class="form-field">Lead<select id="scenarioLead" required></select></label>
+                <input id="scenarioPlaybook" value="real-estate-playbook" placeholder="Playbook name" />
+                <textarea id="scenarioTranscript" rows="4" placeholder="Conversation transcript"></textarea>
+                <textarea id="scenarioSummary" rows="2" placeholder="Sales summary"></textarea>
+                <button class="primary-btn" type="submit">Run scenario and place call</button>
+              </form>
+              <pre id="scenarioResult" class="result-box">Scenario result will appear here.</pre>
+            </section>
+            <section class="panel transcript-panel">
+              <div class="panel-header"><h3>Save call transcript</h3></div>
+              <form id="transcriptForm" class="form-grid">
+                <label class="form-field">Call<select id="transcriptCallSelect" required></select></label>
+                <textarea id="transcriptText" rows="5" placeholder="Transcript text" required></textarea>
+                <textarea id="transcriptSummary" rows="2" placeholder="Call summary"></textarea>
+                <input id="transcriptRecordingUrl" type="url" placeholder="Recording URL (optional)" />
+                <select id="transcriptStatus"><option value="QUEUED">QUEUED</option><option value="RINGING">RINGING</option><option value="IN_PROGRESS">IN_PROGRESS</option><option value="COMPLETED">COMPLETED</option><option value="FAILED">FAILED</option><option value="BUSY">BUSY</option><option value="NO_ANSWER">NO_ANSWER</option><option value="CANCELED">CANCELED</option></select>
+                <button class="secondary-btn" type="submit">Save transcript</button>
+                <div id="transcriptMessage" class="form-message" role="status"></div>
+              </form>
+            </section>
+          </div>
+          <section class="panel table-panel"><div class="panel-header"><h3>Recent calls</h3><button id="refreshCallsBtn" class="ghost-btn" type="button">Refresh</button></div><div class="table-wrap"><table><thead><tr><th>Lead</th><th>Phone</th><th>Status</th><th>Duration</th><th>Created</th><th>Summary</th></tr></thead><tbody id="allCallsTable"></tbody></table></div></section>
+        </section>
+
+        <section id="campaignsView" class="app-view" hidden>
+          <div class="view-heading"><h1>Campaigns</h1></div>
+          <div class="operations-grid">
+            <section class="panel">
+              <div class="panel-header"><h3>Create campaign</h3></div>
+              <form id="campaignForm" class="form-grid">
+                <input id="campaignName" placeholder="Campaign name" required />
+                <label class="form-field">Playbook version<select id="campaignPlaybookVersion" required><option value="">Create a playbook version first</option></select></label>
+                <div class="field-row"><input id="campaignStart" type="time" value="09:00" /><input id="campaignEnd" type="time" value="18:00" /></div>
+                <label class="form-field">Maximum attempts<input id="campaignAttempts" type="number" min="1" max="10" value="2" /></label>
+                <button class="primary-btn" type="submit">Create campaign</button>
+                <div id="campaignMessage" class="form-message" role="status"></div>
+              </form>
+            </section>
+            <section class="panel"><div class="panel-header"><h3>Campaign list</h3><button id="refreshCampaignsBtn" class="ghost-btn" type="button">Refresh</button></div><div id="campaignList" class="record-list"></div></section>
+          </div>
+        </section>
+
+        <section id="playbooksView" class="app-view" hidden>
+          <div class="view-heading"><h1>Playbooks</h1></div>
+          <div class="operations-grid">
+            <section class="panel">
+              <div class="panel-header"><h3>Create playbook</h3></div>
+              <form id="playbookForm" class="form-grid">
+                <input id="playbookName" placeholder="Playbook name" required />
+                <input id="playbookIndustry" placeholder="Industry" value="REAL_ESTATE" required />
+                <select id="playbookStatus"><option value="DRAFT">DRAFT</option><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select>
+                <input id="playbookVersion" placeholder="Version label" value="v1" required />
+                <textarea id="playbookConfiguration" rows="4" placeholder="Configuration JSON (optional)"></textarea>
+                <select id="playbookApproval"><option value="DRAFT">Approval: Draft</option><option value="APPROVED">Approval: Approved</option></select>
+                <button class="primary-btn" type="submit">Create playbook</button>
+                <div id="playbookMessage" class="form-message" role="status"></div>
+              </form>
+            </section>
+            <section class="panel"><div class="panel-header"><h3>Playbook list</h3><button id="refreshPlaybooksBtn" class="ghost-btn" type="button">Refresh</button></div><div id="playbookList" class="record-list"></div></section>
+          </div>
+        </section>
+
+        <section id="complianceView" class="app-view" hidden>
+          <div class="view-heading"><h1>Compliance</h1></div>
+          <div class="operations-grid">
+            <section class="panel">
+              <div class="panel-header"><h3>Add suppression</h3></div>
+              <form id="suppressionForm" class="form-grid">
+                <input id="suppressionPhone" placeholder="Phone number" required />
+                <input id="suppressionReason" placeholder="Reason" required />
+                <select id="suppressionScope"><option value="ALL_CAMPAIGNS">All campaigns</option><option value="OUTBOUND">Outbound calls</option></select>
+                <input id="suppressionSource" value="dashboard" placeholder="Source" />
+                <button class="danger-btn" type="submit">Suppress number</button>
+                <div id="suppressionMessage" class="form-message" role="status"></div>
+              </form>
+              <div id="suppressionResults" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header"><h3>Call-log report</h3><button id="refreshComplianceBtn" class="ghost-btn" type="button">Refresh</button></div>
+              <div id="complianceCallLog" class="output-box">Call-log report has not been loaded.</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="salesBriefsView" class="app-view" hidden>
+          <div class="view-heading"><h1>Sales Briefs</h1></div>
+          <section class="panel sales-brief-box">
+            <form id="salesBriefForm" class="form-grid">
+              <label class="form-field">Lead<select id="briefLeadSelect" required></select></label>
+              <label class="form-field">Transcript<textarea id="briefText" rows="8" placeholder="Transcript"></textarea></label>
+              <label class="form-field">Summary<textarea id="briefSummary" rows="3" placeholder="Lead or conversation summary"></textarea></label>
+              <div class="sales-actions"><button id="generateBriefBtn" class="primary-btn" type="submit">Generate brief</button><button id="exportBriefPdfBtn" class="secondary-btn" type="button">Save PDF</button></div>
+            </form>
+            <div id="briefOutput" class="output-box">No brief generated yet.</div>
+          </section>
+        </section>
       </div>
-    </header>
-
-    <section id="dashboardStats" class="metrics"></section>
-
-    <div class="layout">
-      <main class="panel">
-        <div class="panel-header">
-          <h3>Lead table</h3>
-          <div class="header-actions">
-            <button id="exportExcelBtn" class="secondary-btn">Export Excel</button>
-            <button id="exportPdfBtn" class="ghost-btn">Export PDF</button>
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <input id="searchInput" type="text" placeholder="Search by name, phone, location, source..." />
-          <select id="statusFilter">
-            <option value="ALL">Status: All</option>
-            <option value="NEW">NEW</option>
-            <option value="QUALIFIED">QUALIFIED</option>
-            <option value="FOLLOW_UP">FOLLOW_UP</option>
-            <option value="HOT">HOT</option>
-            <option value="WARM">WARM</option>
-            <option value="COLD">COLD</option>
-            <option value="NOT_SUITABLE">NOT_SUITABLE</option>
-          </select>
-          <select id="priorityFilter">
-            <option value="ALL">Priority: All</option>
-            <option value="HOT">HOT</option>
-            <option value="WARM">WARM</option>
-            <option value="COLD">COLD</option>
-            <option value="NEW">NEW</option>
-          </select>
-          <select id="sourceFilter">
-            <option value="ALL">Source: All</option>
-            <option value="website_form">website_form</option>
-            <option value="paid_ad">paid_ad</option>
-            <option value="whatsapp">whatsapp</option>
-            <option value="csv_import">csv_import</option>
-          </select>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Source</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Intent</th>
-                <th>Location</th>
-                <th>Summary</th>
-              </tr>
-            </thead>
-            <tbody id="leadTableBody"></tbody>
-          </table>
-        </div>
-      </main>
-
-      <aside class="stack">
-        <section class="panel lead-summary-box">
-          <div class="panel-header">
-            <h3>Lead details</h3>
-          </div>
-          <h4 id="selectedLeadName">Select a lead</h4>
-          <div id="leadMeta" class="muted">Lead metadata will appear here.</div>
-          <div id="keyGrid" class="key-grid"></div>
-        </section>
-
-        <section class="panel call-history-box">
-          <div class="panel-header">
-            <h3>Call history</h3>
-          </div>
-          <div id="callList" class="call-list"></div>
-        </section>
-
-        <section class="panel sales-brief-box">
-          <div class="panel-header">
-            <h3>Sales brief panel</h3>
-          </div>
-          <textarea id="briefText" placeholder="Sales brief content will appear here..."></textarea>
-          <div class="sales-actions">
-            <button id="generateBriefBtn" class="primary-btn">Generate brief</button>
-            <button id="exportBriefPdfBtn" class="secondary-btn">Save PDF</button>
-          </div>
-          <div id="briefOutput" class="output-box">No brief generated yet.</div>
-        </section>
-      </aside>
+    </div>
     </div>
   </div>
 

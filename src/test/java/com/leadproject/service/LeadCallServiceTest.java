@@ -53,4 +53,18 @@ class LeadCallServiceTest {
 
         assertEquals("CA-first", call.getProviderCallSid());
     }
+
+    @Test
+    void updateProviderStatusStoresCallDuration() {
+        LeadCall call = new LeadCall();
+        when(leadCallRepository.findByProviderCallSid("CA-call"))
+                .thenReturn(Optional.of(call));
+        when(leadCallRepository.save(call)).thenReturn(call);
+
+        LeadCallService service = new LeadCallService(leadCallRepository, leadRepository);
+        service.updateProviderStatus("CA-call", "completed", 125L);
+
+        assertEquals("COMPLETED", call.getStatus());
+        assertEquals(125L, call.getDurationSeconds());
+    }
 }

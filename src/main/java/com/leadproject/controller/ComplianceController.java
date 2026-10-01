@@ -1,6 +1,7 @@
 package com.leadproject.controller;
 
 import java.util.Map;
+import java.util.List;
 
 import com.leadproject.dto.SuppressionCreateRequest;
 import com.leadproject.model.SuppressionEntry;
@@ -40,6 +41,11 @@ public class ComplianceController {
                 "scope", request.getScope(),
                 "status", "suppressed"
         ));
+    }
+
+    @GetMapping("/suppressions")
+    public ResponseEntity<List<SuppressionEntry>> listSuppressions() {
+        return ResponseEntity.ok(suppressionEntryRepository.findAll());
     }
 
     @GetMapping("/compliance/call-log")
