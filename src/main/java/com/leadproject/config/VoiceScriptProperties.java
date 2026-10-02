@@ -22,6 +22,7 @@ public class VoiceScriptProperties {
     private int maxThinkPolls;
     private int thinkPauseSeconds;
     private String speechLanguage;
+    private String speechVoice;
     private List<String> optOutKeywords = new ArrayList<>();
     private String scriptIntro;
     private String summaryTemplate;
@@ -53,6 +54,8 @@ public class VoiceScriptProperties {
     public void setThinkPauseSeconds(int thinkPauseSeconds) { this.thinkPauseSeconds = thinkPauseSeconds; }
     public String getSpeechLanguage() { return speechLanguage; }
     public void setSpeechLanguage(String speechLanguage) { this.speechLanguage = speechLanguage; }
+    public String getSpeechVoice() { return speechVoice; }
+    public void setSpeechVoice(String speechVoice) { this.speechVoice = speechVoice; }
     public List<String> getOptOutKeywords() { return optOutKeywords; }
     public void setOptOutKeywords(List<String> optOutKeywords) { this.optOutKeywords = optOutKeywords; }
     public String getScriptIntro() { return scriptIntro; }

@@ -144,6 +144,7 @@ app:
     max-think-polls: ${VOICE_MAX_THINK_POLLS:10}
     think-pause-seconds: ${VOICE_THINK_PAUSE_SECONDS:2}
     speech-language: ${VOICE_SPEECH_LANGUAGE:en-US}
+    speech-voice: ${VOICE_SPEECH_VOICE:ElevenLabs.oO7sLA3dWfQXsKeSAjpA}
 
 # In-memory Basic Auth users. Passwords MUST come from env / .env (never commit real secrets).
 security:

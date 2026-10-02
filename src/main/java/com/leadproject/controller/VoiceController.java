@@ -175,8 +175,8 @@ public class VoiceController {
         if (voiceScript.getIvQuestions() != null && next <= voiceScript.getIvQuestions().size()) {
             return nextQuestion(leadId, next, voiceScript.getIvQuestion(next), publicBaseUrl);
         }
-        return "<Response><Say language=\"%s\">%s</Say></Response>".formatted(
-                escapeXmlAttribute(voiceScript.getSpeechLanguage()),
+        return "<Response><Say %s>%s</Say></Response>".formatted(
+            sayAttributes(),
                 escapeXml(voiceScript.getClosingPhrase()));
     }
 
@@ -189,7 +189,7 @@ public class VoiceController {
             if (speechResult != null && !speechResult.isBlank()) {
                 leadCallService.appendAgentTurn(leadId, callSid, "user", speechResult);
             }
-            return "<Response><Say language=\"%s\">%s</Say></Response>".formatted(escapeXmlAttribute(voiceScript.getSpeechLanguage()), escapeXml(voiceScript.getOptOutPhrase()));
+            return "<Response><Say %s>%s</Say></Response>".formatted(sayAttributes(), escapeXml(voiceScript.getOptOutPhrase()));
         }
 
         if (speechResult != null && !speechResult.isBlank()) {
@@ -283,26 +283,31 @@ public class VoiceController {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
                     <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
-                        <Say language="%s">%s</Say>
+                        <Say %s>%s</Say>
                     </Gather>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(action), lang, lang, escapeXml(response),
-                lang, escapeXml(voiceScript.getNoAnswerPhrase()));
+                """.formatted(escapeXmlAttribute(action), lang, sayAttributes(), escapeXml(response),
+                sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 
     private String unavailableTwiml() {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(voiceScript.getSpeechLanguage()),
+                """.formatted(sayAttributes(),
                 escapeXml(voiceScript.getUnavailablePhrase()));
     }
 
     private boolean isOptOut(String speechResult) {
         return voiceScript.matchesOptOut(speechResult);
+    }
+
+    private String sayAttributes() {
+        return "language=\"" + escapeXmlAttribute(voiceScript.getSpeechLanguage())
+                + "\" voice=\"" + escapeXmlAttribute(voiceScript.getSpeechVoice()) + "\"";
     }
 
     @PostMapping(value = "/voice/recording", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -330,12 +335,12 @@ public class VoiceController {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
                     <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
-                        <Say language="%s">%s</Say>
+                        <Say %s>%s</Say>
                     </Gather>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(action), lang, lang, escapeXml(spokenGreeting),
-                lang, escapeXml(voiceScript.getNoAnswerPhrase()));
+                """.formatted(escapeXmlAttribute(action), lang, sayAttributes(), escapeXml(spokenGreeting),
+                sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 
     private String buildQualificationTwiml(Long leadId, String leadName, String publicBaseUrl) {
@@ -345,14 +350,14 @@ public class VoiceController {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                     <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
-                        <Say language="%s">%s</Say>
+                        <Say %s>%s</Say>
                     </Gather>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                 </Response>
-                """.formatted(lang, escapeXml(greeting), escapeXmlAttribute(action), lang, lang,
-                escapeXml(voiceScript.getIvFirstQuestion()), lang, escapeXml(voiceScript.getNoAnswerPhrase()));
+                """.formatted(sayAttributes(), escapeXml(greeting), escapeXmlAttribute(action), lang, sayAttributes(),
+                escapeXml(voiceScript.getIvFirstQuestion()), sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 
     private String nextQuestion(Long leadId, int question, String text, String publicBaseUrl) {
@@ -361,12 +366,12 @@ public class VoiceController {
         return """
                 <Response>
                     <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
-                        <Say language="%s">%s</Say>
+                        <Say %s>%s</Say>
                     </Gather>
-                    <Say language="%s">%s</Say>
+                    <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(action), lang, lang, escapeXml(text),
-                lang, escapeXml(voiceScript.getNoAnswerPhrase()));
+                """.formatted(escapeXmlAttribute(action), lang, sayAttributes(), escapeXml(text),
+                sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 
     private String turnKey(Long leadId, String callSid) {
