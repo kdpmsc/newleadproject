@@ -161,7 +161,7 @@ On a server, set `APP_PUBLIC_BASE_URL=https://your.domain.com` (no localhost in 
 AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434   # or http://ollama:11434 in Compose
 OLLAMA_MODEL=llama3.2:3b
-OLLAMA_NUM_PREDICT=40
+OLLAMA_NUM_PREDICT=120
 OLLAMA_KEEP_ALIVE=30m
 ```
 

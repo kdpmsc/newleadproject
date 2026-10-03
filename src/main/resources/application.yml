@@ -39,27 +39,30 @@ app:
     connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:5000}
     read-timeout-ms: ${AI_READ_TIMEOUT_MS:45000}
     temperature: ${AI_TEMPERATURE:${OLLAMA_TEMPERATURE:0.3}}
-    max-tokens: ${AI_MAX_TOKENS:${OLLAMA_NUM_PREDICT:40}}
+    max-tokens: ${AI_MAX_TOKENS:${OLLAMA_NUM_PREDICT:120}}
     max-conversation-chars: ${AI_MAX_CONVERSATION_CHARS:1200}
     fallback-lead-name: ${AI_FALLBACK_LEAD_NAME:there}
     empty-conversation-placeholder: ${AI_EMPTY_CONVERSATION_PLACEHOLDER:(no messages yet)}
     new-conversation-placeholder: ${AI_NEW_CONVERSATION_PLACEHOLDER:(new conversation)}
     system-prompt: |
-      You are a brief UAE real-estate phone qualifier for XYZ Properties.
-      Ask one short question at a time. Collect intent, property type, location,
-      budget, timeline, decision-maker status, and callback time.
-      Acknowledge briefly, then ask the next useful question.
-      Respect stop, opt-out, or human-transfer requests.
-      Never invent availability, prices, legal advice, or guarantees.
-      Reply with spoken words only: no markup, labels, or emojis.
-      Keep replies under 40 words.
+      You are a natural outbound lead-conversation assistant for the organization configured in this call.
+      Adapt only to the business, offer, audience, policies, and qualification goals supplied in context; never presume an industry.
+      Have a two-way conversation, not a questionnaire. Respond to the caller's latest point or question before pursuing the next useful goal.
+      Acknowledge and retain facts already provided, and ask only for relevant missing information.
+      Clarify uncertain or possibly misrecognized details instead of guessing.
+      Use only approved facts. Never fabricate claims, pricing, availability, eligibility, advice, or commitments.
+      If an answer is not supported by context, say so briefly and offer a permitted next step.
+      Ask at most one concise follow-up question per turn. Respect opt-outs, requests for a person, and call policies immediately.
+      Reply in natural spoken words only, without markup, labels, or emojis. Keep replies under 60 words.
     chat-system-prompt: ${AI_CHAT_SYSTEM_PROMPT:You are a helpful AI assistant for development testing.}
     voice-user-prompt-template: |
       Lead: {name}
-      Transcript:
+      Conversation history in chronological order:
       {history}
 
-      Speak the next short reply only.
+      Respond to the latest caller turn first. Acknowledge the main point and answer any direct question using only approved facts in context.
+      Preserve information already provided; do not ask for it again. If a name, location, amount, or other detail is uncertain or sounds misrecognized, ask a concise clarification instead of guessing.
+      Ask at most one useful follow-up question. Use natural spoken language, no labels or markup, and keep the reply to at most 60 words.
     chat-user-prompt-template: |
       Conversation so far:
       {conversation}
@@ -90,7 +93,7 @@ app:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model: ${OLLAMA_MODEL:llama3.2:3b}
       chat-path: ${OLLAMA_CHAT_PATH:/api/chat}
-      num-predict: ${OLLAMA_NUM_PREDICT:40}
+      num-predict: ${OLLAMA_NUM_PREDICT:120}
       num-ctx: ${OLLAMA_NUM_CTX:1024}
       keep-alive: ${OLLAMA_KEEP_ALIVE:30m}
 
@@ -171,7 +174,7 @@ spring:
         options:
           model: ${OLLAMA_MODEL:llama3.2:3b}
           temperature: ${OLLAMA_TEMPERATURE:0.3}
-          num-predict: ${OLLAMA_NUM_PREDICT:40}
+          num-predict: ${OLLAMA_NUM_PREDICT:120}
           num-ctx: ${OLLAMA_NUM_CTX:1024}
 
 voice:
