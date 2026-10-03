@@ -1,10 +1,16 @@
 package com.leadproject.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadproject.config.AiProperties;
+import com.leadproject.model.AiVoiceAgentTurn;
+import com.leadproject.model.ConversationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -16,20 +22,46 @@ public class AiVoiceAgentService {
 
     private final LlmChatClient llmChatClient;
     private final AiProperties aiProperties;
+    private final ObjectMapper objectMapper;
     private final Executor warmupExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "llm-warmup");
         t.setDaemon(true);
         return t;
     });
 
-    public AiVoiceAgentService(LlmChatClient llmChatClient, AiProperties aiProperties) {
+    public AiVoiceAgentService(LlmChatClient llmChatClient, AiProperties aiProperties, ObjectMapper objectMapper) {
         this.llmChatClient = llmChatClient;
         this.aiProperties = aiProperties;
+        this.objectMapper = objectMapper;
         logger.info("AI voice agent ready: provider={}, chatUrl={}, model={}",
                 llmChatClient.provider(), llmChatClient.chatUrl(), llmChatClient.model());
     }
 
     public String respond(String leadName, String conversation) {
+        return respond(leadName, conversation, "{}");
+        }
+
+        public AiVoiceAgentTurn respondWithState(String leadName, String conversation, String stateJson) {
+            return respondAsync(leadName, conversation, stateJson)
+                .thenCombine(extractFactUpdatesAsync(conversation, stateJson), AiVoiceAgentTurn::new)
+                .join();
+            }
+
+            public CompletableFuture<String> respondAsync(String leadName, String conversation, String stateJson) {
+            return CompletableFuture.supplyAsync(() -> respond(leadName, conversation, stateJson));
+            }
+
+            public CompletableFuture<List<ConversationState.FactUpdate>> extractFactUpdatesAsync(
+                String conversation, String stateJson) {
+            return CompletableFuture.supplyAsync(() -> extractFactUpdates(conversation, stateJson))
+            .exceptionally(exception -> {
+                logger.warn("Conversation fact extraction failed; keeping prior state: provider={}, model={}, error={}",
+                    llmChatClient.provider(), llmChatClient.model(), exception.toString());
+                return List.of();
+            });
+        }
+
+        private String respond(String leadName, String conversation, String stateJson) {
         logger.info("Calling voice agent: provider={}, url={}, model={}, conversationLength={}",
                 llmChatClient.provider(), llmChatClient.chatUrl(), llmChatClient.model(),
                 conversation == null ? 0 : conversation.length());
@@ -41,7 +73,9 @@ public class AiVoiceAgentService {
         String history = conversation == null || conversation.isBlank() ? emptyPlaceholder : trimConversation(conversation);
         String template = requireConfigured(aiProperties.getVoiceUserPromptTemplate(),
                 "app.ai.voice-user-prompt-template");
-        String userPrompt = template.replace("{name}", name).replace("{history}", history);
+        String userPrompt = template.replace("{name}", name)
+            .replace("{history}", history)
+            .replace("{state}", stateJson == null || stateJson.isBlank() ? "{}" : stateJson);
 
         long startedAt = System.nanoTime();
         try {
@@ -56,6 +90,52 @@ public class AiVoiceAgentService {
                     (System.nanoTime() - startedAt) / 1_000_000, exception);
             throw exception;
         }
+    }
+
+    private List<ConversationState.FactUpdate> extractFactUpdates(String conversation, String stateJson) {
+        String template = requireConfigured(aiProperties.getConversationStateUserPromptTemplate(),
+                "app.ai.conversation-state-user-prompt-template");
+        String history = conversation == null || conversation.isBlank()
+                ? requireConfigured(aiProperties.getEmptyConversationPlaceholder(), "app.ai.empty-conversation-placeholder")
+                : trimConversation(conversation);
+        String prompt = template.replace("{history}", history)
+                .replace("{state}", stateJson == null || stateJson.isBlank() ? "{}" : stateJson);
+        String systemPrompt = requireConfigured(aiProperties.getConversationStateSystemPrompt(),
+                "app.ai.conversation-state-system-prompt");
+
+        try {
+            String raw = llmChatClient.complete(systemPrompt, prompt);
+            JsonNode updateNodes = objectMapper.readTree(stripCodeFence(raw)).path("updates");
+            if (!updateNodes.isArray()) {
+                throw new IllegalStateException("Conversation fact response did not contain an updates array");
+            }
+
+            List<ConversationState.FactUpdate> updates = new ArrayList<>();
+            for (JsonNode node : updateNodes) {
+                updates.add(new ConversationState.FactUpdate(
+                        node.path("key").asText(null),
+                        node.path("value").asText(null),
+                        node.path("status").asText("TENTATIVE"),
+                        node.path("confidence").asDouble(Double.NaN),
+                        node.path("evidence").asText(null),
+                        node.path("updateType").asText("UNCERTAIN")));
+            }
+            return updates;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not parse structured conversation facts", exception);
+        }
+    }
+
+    private String stripCodeFence(String response) {
+        String trimmed = response == null ? "" : response.trim();
+        if (!trimmed.startsWith("```")) {
+            return trimmed;
+        }
+        int contentStart = trimmed.indexOf('\n');
+        int contentEnd = trimmed.lastIndexOf("```");
+        return contentStart < 0 || contentEnd <= contentStart
+                ? trimmed
+                : trimmed.substring(contentStart + 1, contentEnd).trim();
     }
 
     /** Fire-and-forget warmup (Ollama keep_alive). No-op for cloud providers. */

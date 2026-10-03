@@ -67,4 +67,41 @@ class LeadCallServiceTest {
         assertEquals("COMPLETED", call.getStatus());
         assertEquals(125L, call.getDurationSeconds());
     }
+
+    @Test
+    void updateProviderStatusArchivesPendingPartialSpeechAsUnconfirmed() {
+        LeadCall call = new LeadCall();
+        call.setConversation("ASSISTANT: Which area do you mean?");
+        call.setPendingPartialSpeechResult("You don't know JVC; it is one location in Dubai");
+        when(leadCallRepository.findByProviderCallSid("CA-call"))
+                .thenReturn(Optional.of(call));
+        when(leadCallRepository.save(call)).thenReturn(call);
+
+        LeadCallService service = new LeadCallService(leadCallRepository, leadRepository);
+        service.updateProviderStatus("CA-call", "completed", 71L);
+
+        assertEquals("COMPLETED", call.getStatus());
+        assertEquals(71L, call.getDurationSeconds());
+        assertEquals("ASSISTANT: Which area do you mean?\nUSER (PARTIAL, UNCONFIRMED): You don't know JVC; it is one location in Dubai",
+                call.getConversation());
+        assertEquals(call.getConversation(), call.getTranscript());
+        assertEquals(null, call.getPendingPartialSpeechResult());
+        verify(leadCallRepository).save(call);
+    }
+
+    @Test
+    void latePartialCallbackAfterCallEndIsArchivedOnlyOnce() {
+        LeadCall call = new LeadCall();
+        call.setStatus("COMPLETED");
+        when(leadCallRepository.findByProviderCallSid("CA-call"))
+                .thenReturn(Optional.of(call));
+        when(leadCallRepository.save(call)).thenReturn(call);
+
+        LeadCallService service = new LeadCallService(leadCallRepository, leadRepository);
+        service.updatePartialSpeechResult("CA-call", "JVC, a location in Dubai");
+        service.updatePartialSpeechResult("CA-call", "JVC, a location in Dubai");
+
+        assertEquals("USER (PARTIAL, UNCONFIRMED): JVC, a location in Dubai", call.getConversation());
+        verify(leadCallRepository).save(call);
+    }
 }

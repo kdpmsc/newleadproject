@@ -46,6 +46,14 @@ public class LeadCall {
     @Column(length = 30000)
     private String conversation;
 
+    @Column(length = 30000)
+    private String conversationStateJson;
+
+    @Column(length = 3000)
+    private String pendingPartialSpeechResult;
+
+    private LocalDateTime partialSpeechArchivedAt;
+
     @Column(length = 2000)
     private String summary;
 
