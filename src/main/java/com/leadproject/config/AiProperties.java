@@ -14,6 +14,8 @@ public class AiProperties {
     private String systemPrompt;
     private String chatSystemPrompt;
     private String voiceUserPromptTemplate;
+    private String conversationStateSystemPrompt;
+    private String conversationStateUserPromptTemplate;
     private String chatUserPromptTemplate;
     private String qualificationSystemPrompt;
     private String qualificationUserPromptTemplate;
@@ -44,6 +46,10 @@ public class AiProperties {
     public void setChatSystemPrompt(String chatSystemPrompt) { this.chatSystemPrompt = chatSystemPrompt; }
     public String getVoiceUserPromptTemplate() { return voiceUserPromptTemplate; }
     public void setVoiceUserPromptTemplate(String voiceUserPromptTemplate) { this.voiceUserPromptTemplate = voiceUserPromptTemplate; }
+    public String getConversationStateSystemPrompt() { return conversationStateSystemPrompt; }
+    public void setConversationStateSystemPrompt(String conversationStateSystemPrompt) { this.conversationStateSystemPrompt = conversationStateSystemPrompt; }
+    public String getConversationStateUserPromptTemplate() { return conversationStateUserPromptTemplate; }
+    public void setConversationStateUserPromptTemplate(String conversationStateUserPromptTemplate) { this.conversationStateUserPromptTemplate = conversationStateUserPromptTemplate; }
     public String getChatUserPromptTemplate() { return chatUserPromptTemplate; }
     public void setChatUserPromptTemplate(String chatUserPromptTemplate) { this.chatUserPromptTemplate = chatUserPromptTemplate; }
     public String getQualificationSystemPrompt() { return qualificationSystemPrompt; }

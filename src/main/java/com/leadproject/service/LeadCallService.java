@@ -95,6 +95,56 @@ public class LeadCallService {
         return call.getConversation() == null ? "" : call.getConversation();
     }
 
+    @Transactional(readOnly = true)
+    public String getConversationStateJson(Long leadId, String providerCallSid) {
+        LeadCall call = findCall(leadId, providerCallSid);
+        return call.getConversationStateJson() == null ? "" : call.getConversationStateJson();
+    }
+
+    @Transactional
+    public LeadCall updateConversationStateJson(Long leadId, String providerCallSid, String stateJson) {
+        LeadCall call = findCall(leadId, providerCallSid);
+        call.setConversationStateJson(stateJson);
+        call.setUpdatedAt(LocalDateTime.now());
+        return leadCallRepository.save(call);
+    }
+
+    @Transactional
+    public void updatePartialSpeechResult(String providerCallSid, String partialSpeechResult) {
+        String normalizedProviderCallSid = normalizeProviderCallSid(providerCallSid);
+        if (normalizedProviderCallSid == null || partialSpeechResult == null || partialSpeechResult.isBlank()) {
+            return;
+        }
+        leadCallRepository.findByProviderCallSid(normalizedProviderCallSid).ifPresent(call -> {
+            String partial = partialSpeechResult.trim();
+            if (partial.length() > 3000) {
+                partial = partial.substring(0, 3000);
+            }
+            if (isTerminalStatus(call.getStatus())) {
+                if (call.getPartialSpeechArchivedAt() != null) {
+                    return;
+                }
+                appendUnconfirmedPartial(call, partial);
+                leadCallRepository.save(call);
+            } else {
+                call.setPendingPartialSpeechResult(partial);
+                call.setPartialSpeechArchivedAt(null);
+                call.setUpdatedAt(LocalDateTime.now());
+                leadCallRepository.save(call);
+            }
+        });
+    }
+
+    @Transactional
+    public void clearPartialSpeechResult(Long leadId, String providerCallSid) {
+        LeadCall call = findCall(leadId, providerCallSid);
+        if (call.getPartialSpeechArchivedAt() == null && call.getPendingPartialSpeechResult() != null) {
+            call.setPendingPartialSpeechResult(null);
+            call.setUpdatedAt(LocalDateTime.now());
+            leadCallRepository.save(call);
+        }
+    }
+
     @Transactional
     public LeadCall appendAgentTurn(Long leadId, String providerCallSid, String role, String text) {
         LeadCall call = findCall(leadId, providerCallSid);
@@ -150,6 +200,9 @@ public class LeadCallService {
             return;
         }
         leadCallRepository.findByProviderCallSid(normalizedProviderCallSid).ifPresent(call -> {
+            if (isTerminalStatus(status)) {
+                appendUnconfirmedPartial(call, call.getPendingPartialSpeechResult());
+            }
             call.setStatus(status == null ? "UNKNOWN" : status.toUpperCase());
             if (durationSeconds != null) {
                 call.setDurationSeconds(durationSeconds);
@@ -157,6 +210,32 @@ public class LeadCallService {
             call.setUpdatedAt(LocalDateTime.now());
             leadCallRepository.save(call);
         });
+    }
+
+    private void appendUnconfirmedPartial(LeadCall call, String partialSpeechResult) {
+        if (partialSpeechResult == null || partialSpeechResult.isBlank()
+            || call.getPartialSpeechArchivedAt() != null) {
+            return;
+        }
+        String entry = "USER (PARTIAL, UNCONFIRMED): " + partialSpeechResult;
+        String conversation = call.getConversation();
+        call.setConversation(conversation == null || conversation.isBlank()
+                ? entry
+                : conversation + "\n" + entry);
+        call.setTranscript(call.getConversation());
+        call.setPendingPartialSpeechResult(null);
+        call.setPartialSpeechArchivedAt(LocalDateTime.now());
+        call.setUpdatedAt(LocalDateTime.now());
+    }
+
+    private boolean isTerminalStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        return switch (status.toLowerCase(java.util.Locale.ROOT)) {
+            case "completed", "failed", "busy", "no-answer", "canceled" -> true;
+            default -> false;
+        };
     }
 
     private String normalizeProviderCallSid(String providerCallSid) {

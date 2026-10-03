@@ -192,7 +192,7 @@ ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
 Shared knobs: `AI_TEMPERATURE`, `AI_MAX_TOKENS`, `AI_CONNECT_TIMEOUT_MS`, `AI_READ_TIMEOUT_MS`.
-Voice greetings / IVR / think budget: `VOICE_COMPANY_NAME`, `VOICE_GREETING_TEMPLATE`, `VOICE_IV_Q1`–`VOICE_IV_Q6`, `VOICE_THINK_BUDGET_MS` (see `.env.example` and `application.yml` under `app.voice`).
+Voice greetings / IVR / speech recognition / think polling: `VOICE_COMPANY_NAME`, `VOICE_GREETING_TEMPLATE`, `VOICE_IV_Q1`–`VOICE_IV_Q6`, `VOICE_SPEECH_LANGUAGE`, `VOICE_SPEECH_HINTS`, `VOICE_SPEECH_CONFIDENCE_THRESHOLD`, `VOICE_MAX_SPEECH_CLARIFICATION_RETRIES`, `VOICE_MAX_CONSECUTIVE_NO_PROGRESS_TURNS`, `VOICE_THINK_BUDGET_MS`, `VOICE_MAX_THINK_POLLS`, and `VOICE_THINK_PAUSE_SECONDS` (see `.env.example` and `application.yml` under `app.voice`).
 CORS: `FRONTEND_ORIGIN`, `CORS_ALLOWED_ORIGINS`. Plivo REST host: `PLIVO_API_BASE_URL` (default `https://api.plivo.com`).
 
 ## Run locally

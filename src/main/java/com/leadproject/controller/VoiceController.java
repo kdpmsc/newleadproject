@@ -3,8 +3,10 @@ package com.leadproject.controller;
 import com.leadproject.service.LeadService;
 import com.leadproject.service.LeadCallService;
 import com.leadproject.service.AiVoiceAgentService;
+import com.leadproject.service.ConversationStateService;
 import com.leadproject.config.AppProperties;
 import com.leadproject.config.VoiceScriptProperties;
+import com.leadproject.model.ConversationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -21,6 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -35,17 +38,20 @@ public class VoiceController {
     private final LeadService leadService;
     private final LeadCallService leadCallService;
     private final AiVoiceAgentService aiVoiceAgentService;
+    private final ConversationStateService conversationStateService;
     private final AppProperties appProperties;
     private final VoiceScriptProperties voiceScript;
     private final ConcurrentHashMap<String, PendingAiTurn> pendingAiTurns = new ConcurrentHashMap<>();
 
     public VoiceController(LeadService leadService, LeadCallService leadCallService,
                            AiVoiceAgentService aiVoiceAgentService,
+                           ConversationStateService conversationStateService,
                            AppProperties appProperties,
                            VoiceScriptProperties voiceScript) {
         this.leadService = leadService;
         this.leadCallService = leadCallService;
         this.aiVoiceAgentService = aiVoiceAgentService;
+        this.conversationStateService = conversationStateService;
         this.appProperties = appProperties;
         this.voiceScript = voiceScript;
     }
@@ -96,11 +102,24 @@ public class VoiceController {
             @RequestParam Long leadId,
             @RequestParam(required = false) String leadName,
             @RequestParam(required = false, defaultValue = "") String SpeechResult,
+            @RequestParam(name = "Confidence", required = false) String speechConfidence,
+            @RequestParam(required = false, defaultValue = "0") int clarificationAttempt,
             @RequestParam(required = false) String CallSid,
             HttpServletRequest request) {
         logger.info("AI voice turn request: leadId={}, callSid={}, speechLength={}",
                 leadId, CallSid, SpeechResult == null ? 0 : SpeechResult.length());
-        return beginAiTurn(leadId, leadName, SpeechResult, CallSid, publicBaseUrl(request));
+        return beginAiTurn(leadId, leadName, SpeechResult, speechConfidence, clarificationAttempt,
+            CallSid, publicBaseUrl(request));
+    }
+
+    @PostMapping(value = "/voice/ai-agent/partial", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<Void> handleAiAgentPartialSpeech(
+            @RequestParam(required = false) String CallSid,
+            @RequestParam(name = "UnstableSpeechResult", required = false) String partialSpeechResult) {
+        logger.info("AI voice partial speech callback: callSid={}, speechLength={}",
+                CallSid, partialSpeechResult == null ? 0 : partialSpeechResult.length());
+        leadCallService.updatePartialSpeechResult(CallSid, partialSpeechResult);
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -180,7 +199,8 @@ public class VoiceController {
                 escapeXml(voiceScript.getClosingPhrase()));
     }
 
-    private String beginAiTurn(Long leadId, String leadName, String speechResult, String callSid, String publicBaseUrl) {
+    private String beginAiTurn(Long leadId, String leadName, String speechResult, String speechConfidence,
+                               int clarificationAttempt, String callSid, String publicBaseUrl) {
         long startedAt = System.nanoTime();
         logger.info("Processing AI voice turn: leadId={}, callSid={}, speechLength={}",
             leadId, callSid, speechResult == null ? 0 : speechResult.length());
@@ -189,20 +209,66 @@ public class VoiceController {
             if (speechResult != null && !speechResult.isBlank()) {
                 leadCallService.appendAgentTurn(leadId, callSid, "user", speechResult);
             }
-            return "<Response><Say %s>%s</Say></Response>".formatted(sayAttributes(), escapeXml(voiceScript.getOptOutPhrase()));
+            leadCallService.appendAgentTurn(leadId, callSid, "assistant", voiceScript.getOptOutPhrase());
+            return endingTwiml(voiceScript.getOptOutPhrase());
+        }
+
+        if (voiceScript.matchesConversationEnd(speechResult)) {
+            String ending = voiceScript.getConversationEndPhrase();
+            leadCallService.clearPartialSpeechResult(leadId, callSid);
+            leadCallService.appendAgentTurn(leadId, callSid, "user", speechResult);
+            leadCallService.appendAgentTurn(leadId, callSid, "assistant", ending);
+            logger.info("Ending AI voice call at caller request: leadId={}, callSid={}", leadId, callSid);
+            return endingTwiml(ending);
         }
 
         if (speechResult != null && !speechResult.isBlank()) {
+            if (voiceScript.isNoProgressSpeech(speechResult)) {
+                String previousConversation = leadCallService.getConversation(leadId, callSid);
+                int previousNoProgressTurns = trailingNoProgressTurns(previousConversation);
+                int retryLimit = Math.max(1, voiceScript.getMaxConsecutiveNoProgressTurns());
+                if (previousNoProgressTurns >= retryLimit) {
+                    String ending = voiceScript.getConversationEndPhrase();
+                    leadCallService.clearPartialSpeechResult(leadId, callSid);
+                    leadCallService.appendAgentTurn(leadId, callSid, "user", speechResult);
+                    leadCallService.appendAgentTurn(leadId, callSid, "assistant", ending);
+                    logger.info("Ending AI voice call after repeated no-progress turns: leadId={}, callSid={}, turns={}",
+                            leadId, callSid, previousNoProgressTurns + 1);
+                    return endingTwiml(ending);
+                }
+            }
+            leadCallService.clearPartialSpeechResult(leadId, callSid);
             leadCallService.appendAgentTurn(leadId, callSid, "user", speechResult);
         }
 
+        if (voiceScript.requiresSpeechClarification(speechConfidence)
+            && clarificationAttempt < voiceScript.getMaxSpeechClarificationRetries()) {
+            String clarification = voiceScript.getSpeechClarificationPhrase();
+            leadCallService.appendAgentTurn(leadId, callSid, "assistant", clarification);
+            logger.info("Requesting speech clarification: leadId={}, callSid={}, attempt={}",
+                leadId, callSid, clarificationAttempt + 1);
+            return speechClarificationTwiml(leadId, leadName, clarificationAttempt + 1,
+                publicBaseUrl, clarification);
+        }
+
         String conversation = leadCallService.getConversation(leadId, callSid);
+        String stateJson = conversationStateService.getStateJson(leadId, callSid);
         String key = turnKey(leadId, callSid);
         final String resolvedLeadName = leadName;
         final String resolvedCallSid = callSid;
 
-        CompletableFuture<String> future = CompletableFuture.supplyAsync(() ->
-                aiVoiceAgentService.respond(resolvedLeadName, conversation));
+        CompletableFuture<String> future = aiVoiceAgentService.respondAsync(
+                resolvedLeadName, conversation, stateJson)
+                .thenApply(response -> {
+                    if (response == null || response.isBlank()) {
+                        throw new IllegalStateException("AI voice agent returned an empty response");
+                    }
+                    leadCallService.appendAgentTurn(leadId, resolvedCallSid, "assistant", response);
+                    return response;
+                });
+        CompletableFuture<List<ConversationState.FactUpdate>> updatesFuture =
+            aiVoiceAgentService.extractFactUpdatesAsync(conversation, stateJson);
+        conversationStateService.persistUpdatesWhenReady(leadId, callSid, updatesFuture);
         pendingAiTurns.put(key, new PendingAiTurn(future, System.currentTimeMillis(), new AtomicInteger(0), speechResult));
 
         logger.info("AI voice turn queued async: leadId={}, callSid={}, turnKey={}, durationMs={}",
@@ -224,7 +290,6 @@ public class VoiceController {
             pendingAiTurns.remove(key);
             try {
                 String response = pending.future.get(1, TimeUnit.SECONDS);
-                leadCallService.appendAgentTurn(leadId, callSid, "assistant", response);
                 logger.info("AI voice turn completed: leadId={}, callSid={}, responseLength={}, waitedMs={}, polls={}",
                         leadId, callSid, response.length(), waitedMs, poll);
                 return aiReplyTwiml(leadId, leadName, response, publicBaseUrl);
@@ -282,13 +347,35 @@ public class VoiceController {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
-                    <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
+                    <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto"%s%s>
                         <Say %s>%s</Say>
                     </Gather>
                     <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(action), lang, sayAttributes(), escapeXml(response),
+                """.formatted(escapeXmlAttribute(action), lang, speechHintsAttribute(),
+                partialSpeechCallbackAttribute(publicBaseUrl), sayAttributes(), escapeXml(response),
                 sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
+    }
+
+    private String speechClarificationTwiml(Long leadId, String leadName, int clarificationAttempt,
+                                            String publicBaseUrl, String clarification) {
+        String action = publicBaseUrl + "/api/v1/voice/ai-agent/turn?leadId=" + leadId
+                + "&clarificationAttempt=" + clarificationAttempt;
+        if (leadName != null && !leadName.isBlank()) {
+            action += "&leadName=" + urlEncode(leadName);
+        }
+        String lang = escapeXmlAttribute(voiceScript.getSpeechLanguage());
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Response>
+                    <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto"%s%s>
+                        <Say %s>%s</Say>
+                    </Gather>
+                    <Say %s>%s</Say>
+                </Response>
+                """.formatted(escapeXmlAttribute(action), lang, speechHintsAttribute(),
+                partialSpeechCallbackAttribute(publicBaseUrl), sayAttributes(),
+                escapeXml(clarification), sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 
     private String unavailableTwiml() {
@@ -296,18 +383,59 @@ public class VoiceController {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
                     <Say %s>%s</Say>
+                    <Hangup/>
                 </Response>
                 """.formatted(sayAttributes(),
                 escapeXml(voiceScript.getUnavailablePhrase()));
+    }
+
+    private String endingTwiml(String phrase) {
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Response>
+                    <Say %s>%s</Say>
+                    <Hangup/>
+                </Response>
+                """.formatted(sayAttributes(), escapeXml(phrase));
     }
 
     private boolean isOptOut(String speechResult) {
         return voiceScript.matchesOptOut(speechResult);
     }
 
+    private int trailingNoProgressTurns(String conversation) {
+        if (conversation == null || conversation.isBlank()) {
+            return 0;
+        }
+        int count = 0;
+        String[] entries = conversation.split("\\R");
+        for (int index = entries.length - 1; index >= 0; index--) {
+            String entry = entries[index].trim();
+            if (!entry.startsWith("USER: ")) {
+                continue;
+            }
+            if (!voiceScript.isNoProgressSpeech(entry.substring("USER: ".length()))) {
+                break;
+            }
+            count++;
+        }
+        return count;
+    }
+
     private String sayAttributes() {
         return "language=\"" + escapeXmlAttribute(voiceScript.getSpeechLanguage())
                 + "\" voice=\"" + escapeXmlAttribute(voiceScript.getSpeechVoice()) + "\"";
+    }
+
+    private String speechHintsAttribute() {
+        String hints = voiceScript.getSpeechRecognitionHints();
+        return hints == null || hints.isBlank() ? "" : " hints=\"" + escapeXmlAttribute(hints) + "\"";
+    }
+
+    private String partialSpeechCallbackAttribute(String publicBaseUrl) {
+        String callback = trimTrailingSlash(publicBaseUrl) + "/api/v1/voice/ai-agent/partial";
+        return " partialResultCallback=\"" + escapeXmlAttribute(callback)
+                + "\" partialResultCallbackMethod=\"POST\"";
     }
 
     @PostMapping(value = "/voice/recording", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -334,12 +462,13 @@ public class VoiceController {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Response>
-                    <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto">
+                    <Gather input="speech" action="%s" method="POST" language="%s" speechTimeout="auto"%s%s>
                         <Say %s>%s</Say>
                     </Gather>
                     <Say %s>%s</Say>
                 </Response>
-                """.formatted(escapeXmlAttribute(action), lang, sayAttributes(), escapeXml(spokenGreeting),
+                """.formatted(escapeXmlAttribute(action), lang, speechHintsAttribute(),
+                partialSpeechCallbackAttribute(publicBaseUrl), sayAttributes(), escapeXml(spokenGreeting),
                 sayAttributes(), escapeXml(voiceScript.getNoAnswerPhrase()));
     }
 

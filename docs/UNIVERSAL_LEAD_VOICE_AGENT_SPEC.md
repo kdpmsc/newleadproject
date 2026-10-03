@@ -315,48 +315,44 @@ Automated evaluation should grade state correctness and policy adherence determi
 ### Phase 0: Baseline and product decisions
 
 - Capture current Twilio, Plivo, model, database, and call flows; add reproducible tests for current AI webhook behavior.
-- Decide initial supported customer identity/auth approach, first provider, first locales, provider credential model (platform-managed, BYOK, or both), recording default, and initial deployment jurisdictions.
-- Define a generic demo profile plus two contrasting profiles (for example, real estate and insurance) to prevent accidental domain assumptions.
+- Record the real-estate call configuration, target voice, language, Twilio setup, and current call latency as the baseline.
+- Confirm test-account calling restrictions, verified recipients, recording defaults, and the jurisdiction used for the real-estate validation calls.
 - Create golden conversation tests including the observed Arjan clarification case.
-- Establish current latency/cost/turn-completion baseline and explicitly separate turn-based vs streaming acceptance.
+- Establish current latency/cost/turn-completion baseline and define real-time acceptance separately.
 
-**Exit gate:** documented decisions; baseline tests; no secret values in logs/test fixtures; agreed launch jurisdictions/provider matrix.
+**Exit gate:** documented real-estate baseline; repeatable test scenarios; no secret values in logs/test fixtures; agreed call quality and latency measures.
 
-### Phase 1: Domain-neutral profile and natural turn-based agent
+### Phase 1: Structured state and real-estate call quality
 
-- Evolve Playbook/PlaybookVersion into typed, schema-versioned agent configuration while preserving stored JSON.
-- Add organization ownership and tenant scoping to profiles, campaigns, calls, leads, and suppressions.
-- Replace global voice prompt use with version-resolved `ConversationContext` assembled from campaign-pinned profile, policy, approved knowledge, and conversation state.
-- Add typed field definitions and structured model output validation; keep a safe, deterministic response on malformed model output.
-- Add ordered call turns and state/fact observations with confidence/provenance; maintain legacy transcript compatibility.
-- Add dialogue behavior for acknowledgement, avoid-repeat, clarification, correction, answer-then-ask, opt-out, human request, and safe unknown answer.
-- Make locale, speech voice, vocabulary hints, turn timeout, token budget, and response length profile/provider settings with validated limits.
-- Add simulation endpoint and generic profile builder sufficient to draft, validate, and test a profile.
-- Add database migrations and tests for tenant isolation, version pinning, idempotency, call history, and backward compatibility.
+- Persist per-call confirmed and tentative facts, evidence, confidence, and explicit correction history while preserving the existing transcript.
+- Extract caller facts in parallel with response generation; if extraction fails, keep the prior state and continue the voice response.
+- Feed confirmed facts and corrections into the next turn so the real-estate agent does not re-ask settled questions or retain corrected locations/preferences.
+- Keep state updates bounded and validated; tentative or conflicting model output must not overwrite a confirmed fact unless explicitly marked as a confirmed correction.
+- Test the observed transcript, clear answers, volunteered facts, corrections, uncertain places/amounts, opt-out, malformed extraction JSON, and provider failure.
+- Validate live Twilio calls with verified test recipients and review transcripts/state after each scenario.
 
-**Exit gate:** both contrasting profiles pass golden scenarios; a published version cannot be mutated; existing real-estate flow remains usable; every call is tenant-scoped; no hard-coded real-estate prompt is used unless selected by a profile.
+**Exit gate:** representative real-estate calls preserve confirmed facts, apply explicit corrections, clarify uncertain speech, and do not lose calls when fact extraction fails.
 
-### Phase 2: Product lifecycle and safe campaign operation
+### Phase 2: Streaming and interruptible real-estate voice
 
-- Implement draft/review/approved/published/archived version states, diffs, reviewer audit, rollback by publishing a prior configuration as a new version.
-- Add approved knowledge management, freshness/source attribution, retrieval tests, and unknown-answer behavior.
-- Add call schedule by timezone, consent/disclosure, suppression, retries, concurrency/rate/spend controls, preview, pause/resume, and kill switch.
-- Move authentication to organization memberships with role-based authorization; encrypt provider credentials or integrate with secret manager.
-- Add campaign and call outcome dashboards, failure taxonomy, transcript access/redaction, retention/deletion workflows.
-- Add a UI path to configure, simulate, publish, test-call, and launch without editing `.env` or JSON by hand.
+- Compare Twilio ConversationRelay with Media Streams using the existing real-estate conversation and actual call constraints.
+- Select the transport based on measured interruption handling, time-to-first-audio, reliability, provider availability, cost, and operational complexity.
+- Implement streaming behind a voice transport interface; support authenticated WebSocket events, partial/final speech, barge-in, cancellation, backpressure, reconnect, idempotency, and turn persistence.
+- Keep the current `<Gather>` implementation as an explicit fallback until streaming calls pass the same real-estate scenarios.
+- Measure speech-end-to-first-audio, interruption-stop time, dropped/duplicate turns, disconnect recovery, and call outcomes.
 
-**Exit gate:** a tenant admin can onboard and operate a sandbox campaign without developer intervention; prohibited recipients cannot be dialed; cross-tenant API tests pass; audited rollback works.
+**Exit gate:** real-estate streaming calls pass barge-in, correction, recovery, and failure scenarios against agreed latency/reliability targets; turn-based fallback remains healthy.
 
-### Phase 3: Real-time voice proof of capability
+### Phase 3: Profile-driven product and safe campaign operation
 
-- Spike ConversationRelay and Media Streams using a small call set with realistic accents/noise, interruptions, endpointing, language, and domain vocabulary.
-- Compare time-to-first-response, interruption handling, reliability, operational complexity, provider constraints, and per-minute cost.
-- Implement the winning transport behind `VoiceTransport` and add provider capability discovery/config validation.
-- Add WebSocket session authentication, event normalization, streaming response delivery, cancellation/barge-in, backpressure, reconnect, and turn persistence.
-- Retain the turn-based path as automatic/manual fallback. Make campaign mode explicit and visible.
-- Add stress, race/idempotency, disconnect, provider timeout, and security tests.
+- Evolve Playbook/PlaybookVersion into typed, schema-versioned agent configuration while preserving existing data.
+- Resolve an immutable version from a campaign at call start; use it for greeting, domain vocabulary, approved facts, qualification goals, locale, and voice behavior.
+- Add typed fields, safe structured output, knowledge management, validation, simulation, review, approval, publish, rollback, and version pinning.
+- Add tenant ownership, organization membership and roles, provider credential isolation, call schedules, consent/disclosure, suppression, retries, rate limits, and spend controls.
+- Add campaign/call outcome dashboards, transcript access and redaction, retention/deletion workflows, and operator pause/kill controls.
+- Generalize and validate with at least two contrasting industries before claiming domain portability.
 
-**Exit gate:** meet real-time targets in representative test calls, including barge-in and recovery, with no lost/doubled turns; fallback remains usable; no security/compliance regression.
+**Exit gate:** two distinct profiles operate through both supported voice modes; a trained non-developer can configure and safely run a sandbox campaign; tenant isolation and compliance tests pass.
 
 ### Phase 4: Controlled beta and expansion
 
@@ -398,14 +394,12 @@ Latency measurement must define the event boundaries and exclude/report provider
 
 ## 18. Recommended First Implementation Slice
 
-Start with Phase 0 and the first half of Phase 1, not a full streaming rewrite. In one vertical slice:
+Build confidence in the current real-estate calling behavior before generalizing it. In order:
 
-1. Create a typed, versioned generic agent profile with configurable fields and approved facts.
-2. Resolve the profile version from campaign at call creation and pass it into every webhook/turn.
-3. Persist role-separated turns and structured fact state.
-4. Replace the current global voice prompt with a structured conversation decision contract.
-5. Add the Arjan ambiguity, direct-question response, already-known-field, opt-out, and unsupported-fact scenarios as automated tests.
-6. Ship a simple simulator and config validation before building a broad visual editor.
-7. Keep Twilio `<Gather>` operational while measuring turn latency; run a separate ConversationRelay/Media Streams proof before committing to real-time architecture.
+1. Persist structured confirmed/tentative facts and correction history for each call.
+2. Feed that state into each real-estate reply; test remembering, correcting, and not re-asking facts.
+3. Validate the current Twilio call behavior with controlled recipients and an evaluation set.
+4. Implement and validate streaming/interruptible calling against the same real-estate scenarios, retaining `<Gather>` fallback.
+5. After call quality and streaming behavior are established, connect immutable playbook versions and generalize profiles beyond real estate.
 
-This slice proves domain-neutral configuration and materially more realistic conversation while keeping the existing calling workflow available. It also creates the state/version boundaries needed for a later real-time voice transport.
+This order prioritizes confidence in the working real-estate call experience before introducing cross-industry configuration.

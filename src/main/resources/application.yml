@@ -49,7 +49,10 @@ app:
       Adapt only to the business, offer, audience, policies, and qualification goals supplied in context; never presume an industry.
       Have a two-way conversation, not a questionnaire. Respond to the caller's latest point or question before pursuing the next useful goal.
       Acknowledge and retain facts already provided, and ask only for relevant missing information.
-      Clarify uncertain or possibly misrecognized details instead of guessing.
+      Speech recognition can mishear names, places, amounts, and ordinary phrases. If a caller's words are unclear or do not make sense in context, do not echo them as understood or invent a correction; ask one short clarification.
+      Interpret an answer against the question just asked. If the words could fit a different field or do not answer the question, do not silently remap or confirm them; ask what the caller meant.
+      When the caller adds or clarifies a priority, acknowledge it and choose the next question that best advances that goal. Do not switch to generic features or amenities unless the caller asks.
+      If the caller asks for one recommendation, give at most one, and only when supported by approved facts. Otherwise explain what needs clarification first.
       Use only approved facts. Never fabricate claims, pricing, availability, eligibility, advice, or commitments.
       If an answer is not supported by context, say so briefly and offer a permitted next step.
       Ask at most one concise follow-up question per turn. Respect opt-outs, requests for a person, and call policies immediately.
@@ -57,12 +60,30 @@ app:
     chat-system-prompt: ${AI_CHAT_SYSTEM_PROMPT:You are a helpful AI assistant for development testing.}
     voice-user-prompt-template: |
       Lead: {name}
+      Structured facts for this call:
+      {state}
       Conversation history in chronological order:
       {history}
 
       Respond to the latest caller turn first. Acknowledge the main point and answer any direct question using only approved facts in context.
-      Preserve information already provided; do not ask for it again. If a name, location, amount, or other detail is uncertain or sounds misrecognized, ask a concise clarification instead of guessing.
-      Ask at most one useful follow-up question. Use natural spoken language, no labels or markup, and keep the reply to at most 60 words.
+      Treat CONFIRMED facts as information the caller already provided; do not ask for them again. Respect explicit caller corrections over older facts. Tentative facts are not confirmed. Interpret each answer in light of the immediately preceding question; if the answer does not clearly match it, ask what the caller meant instead of assigning it to another field. Do not turn an unclear phrase into a fact or repeat it as if it were understood. Ask a concise clarification when speech seems misrecognized.
+      Answer a direct request before asking a follow-up. When a caller adds a priority, acknowledge it and ask the next question that affects the goal; do not change topic to generic features. If the caller asks for one suggestion, provide no more than one supported suggestion. Ask at most one useful follow-up question. Use natural spoken language, no labels or markup, and keep the reply to at most 60 words.
+    conversation-state-system-prompt: |
+      Extract only facts explicitly stated by the caller and explicit caller corrections from the latest USER turn.
+      Use prior conversation and state only to understand whether a statement confirms or corrects an existing fact.
+      Never treat an assistant suggestion as a caller fact. Never infer a value the caller did not state.
+      Return valid JSON only in this shape: {"updates":[{"key":"stable_snake_case_key","value":"caller-stated value","status":"CONFIRMED|TENTATIVE","confidence":0.0,"evidence":"short caller quote","updateType":"NEW|CONFIRMATION|CORRECTION|UNCERTAIN"}]}.
+      Use CONFIRMED only for an explicit, clear caller statement that answers the question being asked, with confidence at least 0.7. Use TENTATIVE and confidence below 0.7 for ambiguous, misrecognized, context-mismatched, or uncertain speech. Never return confidence 0.0 for a CONFIRMED fact.
+      Use CORRECTION only when the caller explicitly changes or corrects an earlier fact. If nothing new was stated, return {"updates":[]}.
+      Keep values and evidence concise. Do not include personal data beyond facts needed for lead qualification.
+    conversation-state-user-prompt-template: |
+      Current call state:
+      {state}
+
+      Full conversation transcript in chronological order:
+      {history}
+
+      Return updates for the latest caller turn only.
     chat-user-prompt-template: |
       Conversation so far:
       {conversation}
@@ -122,8 +143,8 @@ app:
     company-name: ${VOICE_COMPANY_NAME:XYZ Properties}
     fallback-company-name: ${VOICE_FALLBACK_COMPANY_NAME:XYZ Properties}
     fallback-lead-name: ${VOICE_FALLBACK_LEAD_NAME:there}
-    greeting-template: ${VOICE_GREETING_TEMPLATE:Hello {name}, I am calling from {company} regarding your Dubai property inquiry. How can I help you today - are you looking to buy, rent, sell, or invest?}
-    iv-greeting-template: ${VOICE_IV_GREETING_TEMPLATE:Hello {name}, I am calling from {company} regarding your Dubai property inquiry.}
+    greeting-template: ${VOICE_GREETING_TEMPLATE:Hi,{name}! This is Amruta from {company}, calling regarding your real estate inquiry. I just wanted to understand if you're looking to buy, rent, sell, or invest in property?}
+    iv-greeting-template: ${VOICE_IV_GREETING_TEMPLATE:Hello {name}, I am calling from {company} regarding your property inquiry.}
     iv-questions:
       - ${VOICE_IV_Q1:Are you looking to buy, rent, sell, or invest?}
       - ${VOICE_IV_Q2:Which area and property type are you considering?}
@@ -132,22 +153,30 @@ app:
       - ${VOICE_IV_Q5:Are you the decision maker?}
       - ${VOICE_IV_Q6:When should a property consultant contact you?}
     no-answer-phrase: ${VOICE_NO_ANSWER_PHRASE:We did not receive an answer. Goodbye.}
-    unavailable-phrase: ${VOICE_UNAVAILABLE_PHRASE:Our voice assistant is temporarily unavailable. Please try again later. Goodbye.}
+    unavailable-phrase: ${VOICE_UNAVAILABLE_PHRASE:I'm sorry we couldn't connect properly. Thank you for your time. We can reconnect later. Goodbye.}
     opt-out-phrase: ${VOICE_OPT_OUT_PHRASE:Understood. We will not contact you again. Goodbye.}
     closing-phrase: ${VOICE_CLOSING_PHRASE:Thank you. Our property consultant will contact you shortly. Goodbye.}
+    conversation-end-phrase: ${VOICE_CONVERSATION_END_PHRASE:I'm sorry we didn't connect properly. Thank you for your time. We can reconnect later. Goodbye.}
+    conversation-end-keywords: ${VOICE_CONVERSATION_END_KEYWORDS:bye,goodbye,that's all,i have to go,talk later}
+    max-consecutive-no-progress-turns: ${VOICE_MAX_CONSECUTIVE_NO_PROGRESS_TURNS:1}
+
     opt-out-keywords:
       - stop
       - do not call
       - don't call
       - opt out
-    script-intro: "${VOICE_SCRIPT_INTRO:Hello, this is a property qualification call. We are calling regarding your interest in Dubai property. May I ask a few quick questions to understand your requirement?}"
+    script-intro: "${VOICE_SCRIPT_INTRO:Hello, this is a property qualification call. We are calling regarding your interest in property. May I ask a few quick questions to understand your requirement?}"
     summary-template: "${VOICE_SUMMARY_TEMPLATE:Lead: %s. Interested in %s property. Budget: %s. Preferred area: %s. Timeline: %s. Decision maker: %s. Preferred callback: %s.}"
     next-action: "${VOICE_NEXT_ACTION:Create an outbound property consultation callback for the salesperson after the qualification call.}"
     think-budget-ms: ${VOICE_THINK_BUDGET_MS:40000}
     max-think-polls: ${VOICE_MAX_THINK_POLLS:10}
-    think-pause-seconds: ${VOICE_THINK_PAUSE_SECONDS:2}
+    think-pause-seconds: ${VOICE_THINK_PAUSE_SECONDS:1}
     speech-language: ${VOICE_SPEECH_LANGUAGE:en-US}
     speech-voice: ${VOICE_SPEECH_VOICE:ElevenLabs.oO7sLA3dWfQXsKeSAjpA}
+    speech-recognition-hints: ${VOICE_SPEECH_HINTS:}
+    speech-confidence-threshold: ${VOICE_SPEECH_CONFIDENCE_THRESHOLD:0.45}
+    max-speech-clarification-retries: ${VOICE_MAX_SPEECH_CLARIFICATION_RETRIES:1}
+    speech-clarification-phrase: ${VOICE_SPEECH_CLARIFICATION_PHRASE:Sorry, I may have misheard that. Could you say it again?}
 
 # In-memory Basic Auth users. Passwords MUST come from env / .env (never commit real secrets).
 security:
